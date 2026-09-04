@@ -1,0 +1,600 @@
+package wiggle
+
+import (
+	"regexp"
+	"strings"
+	"unicode/utf8"
+
+	"charm.land/lipgloss/v2"
+	"github.com/joaofbmaia/wiggle/wavejson"
+)
+
+// canvas is a grid of styled runes.
+type canvas struct {
+	w, h  int
+	cells []canvasCell
+}
+
+type canvasCell struct {
+	r  rune
+	st *lipgloss.Style
+}
+
+func newCanvas(w, h int) *canvas {
+	c := &canvas{w: w, h: h, cells: make([]canvasCell, w*h)}
+	for i := range c.cells {
+		c.cells[i].r = ' '
+	}
+	return c
+}
+
+func (c *canvas) put(x, y int, r rune, st *lipgloss.Style) {
+	if x < 0 || y < 0 || x >= c.w || y >= c.h {
+		return
+	}
+	c.cells[y*c.w+x] = canvasCell{r: r, st: st}
+}
+
+func (c *canvas) text(x, y int, s string, st *lipgloss.Style) {
+	for _, r := range s {
+		c.put(x, y, r, st)
+		x++
+	}
+}
+
+func (c *canvas) hline(x0, x1, y int, r rune, st *lipgloss.Style) {
+	for x := x0; x <= x1; x++ {
+		c.put(x, y, r, st)
+	}
+}
+
+func (c *canvas) vline(x, y0, y1 int, r rune, st *lipgloss.Style) {
+	for y := y0; y <= y1; y++ {
+		c.put(x, y, r, st)
+	}
+}
+
+// String joins rows, merging runs of equally styled cells into one styled
+// segment and trimming unstyled trailing blanks.
+func (c *canvas) String() string {
+	var out strings.Builder
+	var run strings.Builder
+	for y := range c.h {
+		row := c.cells[y*c.w : (y+1)*c.w]
+		end := c.w
+		for end > 0 && row[end-1].r == ' ' && row[end-1].st == nil {
+			end--
+		}
+		if y > 0 {
+			out.WriteByte('\n')
+		}
+		var cur *lipgloss.Style
+		flush := func() {
+			if run.Len() == 0 {
+				return
+			}
+			if cur == nil {
+				out.WriteString(run.String())
+			} else {
+				out.WriteString(cur.Render(run.String()))
+			}
+			run.Reset()
+		}
+		for x := range end {
+			if row[x].st != cur {
+				flush()
+				cur = row[x].st
+			}
+			run.WriteRune(row[x].r)
+		}
+		flush()
+	}
+	return out.String()
+}
+
+// laneRow is a placed lane: its expanded cells and its top canvas row.
+type laneRow struct {
+	ln  *lane
+	top int
+}
+
+type renderer struct {
+	d     *wavejson.Diagram
+	opts  Options
+	g     *Glyphs
+	t     *Theme
+	cw    int // columns per cycle
+	x0    int // first lane column
+	lanes []laneRow
+	nodes map[rune]int // node -> lane index
+	c     *canvas
+}
+
+func newRenderer(d *wavejson.Diagram, opts Options) *renderer {
+	return &renderer{d: d, opts: opts, g: opts.glyphs(), t: opts.theme(), cw: opts.cycleWidth(d), nodes: map[rune]int{}}
+}
+
+// rowKind describes what a canvas row holds while laying out.
+type rowKind uint8
+
+const (
+	rowSpacer rowKind = iota
+	rowLane
+	rowGroupHead
+	rowGroupFoot
+	rowText
+	rowTick
+	rowTock
+)
+
+type rowPlan struct {
+	kind  rowKind
+	depth int    // group nesting for gutter drawing
+	label string // group name or head/foot text
+	lane  *lane
+	sig   *wavejson.Signal
+	tick  *wavejson.Ticks
+	every int
+	open  bool // group bracket starts here
+	close bool // group bracket ends here
+	foot  bool // ticks below the lanes
+}
+
+func (r *renderer) render() string {
+	cycles := r.d.Cycles()
+	depth := groupDepth(r.d.Signal)
+	gutter := depth * 2
+	nameW := nameWidth(r.d.Signal)
+	r.x0 = gutter + nameW + 1
+	width := r.x0 + cycles*r.cw + 2
+
+	var rows []rowPlan
+	if h := r.d.Head; h != nil {
+		if h.Text != "" {
+			rows = append(rows, rowPlan{kind: rowText, label: h.Text})
+		}
+		if h.Tick != nil {
+			rows = append(rows, rowPlan{kind: rowTick, tick: h.Tick, every: h.Every})
+		}
+		if h.Tock != nil {
+			rows = append(rows, rowPlan{kind: rowTock, tick: h.Tock, every: h.Every})
+		}
+		if len(rows) > 0 && !r.opts.Compact {
+			rows = append(rows, rowPlan{kind: rowSpacer})
+		}
+	}
+	rows = r.planItems(rows, r.d.Signal, 0)
+	if f := r.d.Foot; f != nil {
+		if f.Tock != nil {
+			rows = append(rows, rowPlan{kind: rowTock, tick: f.Tock, every: f.Every, foot: true})
+		}
+		if f.Tick != nil {
+			rows = append(rows, rowPlan{kind: rowTick, tick: f.Tick, every: f.Every, foot: true})
+		}
+		if f.Text != "" {
+			rows = append(rows, rowPlan{kind: rowText, label: f.Text})
+		}
+	}
+	// Drop a trailing spacer.
+	for len(rows) > 0 && rows[len(rows)-1].kind == rowSpacer {
+		rows = rows[:len(rows)-1]
+	}
+
+	height := 0
+	for _, p := range rows {
+		if p.kind == rowLane {
+			height += 2
+		} else {
+			height++
+		}
+	}
+	r.c = newCanvas(width, height)
+
+	// Group brackets: track open groups per depth to draw bars.
+	bars := make([]bool, depth+1)
+	y := 0
+	for _, p := range rows {
+		rowsHere := 1
+		if p.kind == rowLane {
+			rowsHere = 2
+		}
+		switch p.kind {
+		case rowGroupHead:
+			bars[p.depth] = true
+			r.c.put(p.depth*2, y, r.g.GroupTop, &r.t.GroupBar)
+			r.c.text(p.depth*2+2, y, p.label, &r.t.Group)
+		case rowGroupFoot:
+			bars[p.depth] = false
+			r.c.put(p.depth*2, y, r.g.GroupBottom, &r.t.GroupBar)
+		case rowLane:
+			r.drawLane(p, y, cycles)
+		case rowText:
+			r.centered(p.label, y, &r.t.Title)
+		case rowTick:
+			r.drawTicks(p, y, cycles, true)
+		case rowTock:
+			r.drawTicks(p, y, cycles, false)
+		}
+		// Bars for enclosing groups.
+		for dpt := 0; dpt <= depth; dpt++ {
+			if !bars[dpt] || (p.kind == rowGroupHead && dpt == p.depth) {
+				continue
+			}
+			for yy := y; yy < y+rowsHere; yy++ {
+				if p.kind == rowGroupFoot && dpt == p.depth {
+					continue
+				}
+				r.c.put(dpt*2, yy, r.g.GroupBar, &r.t.GroupBar)
+			}
+		}
+		y += rowsHere
+	}
+	r.drawEdges()
+	return r.c.String()
+}
+
+func (r *renderer) planItems(rows []rowPlan, items []wavejson.Item, depth int) []rowPlan {
+	for _, it := range items {
+		switch {
+		case it.Group != nil:
+			rows = append(rows, rowPlan{kind: rowGroupHead, depth: depth, label: it.Group.Name})
+			rows = r.planItems(rows, it.Group.Items, depth+1)
+			if !r.opts.Compact && len(rows) > 0 && rows[len(rows)-1].kind == rowSpacer {
+				rows[len(rows)-1] = rowPlan{kind: rowGroupFoot, depth: depth}
+			} else {
+				rows = append(rows, rowPlan{kind: rowGroupFoot, depth: depth})
+			}
+		case it.Signal != nil:
+			rows = append(rows, rowPlan{kind: rowLane, depth: depth, sig: it.Signal, lane: expand(it.Signal, r.cw)})
+			if !r.opts.Compact {
+				rows = append(rows, rowPlan{kind: rowSpacer})
+			}
+		default:
+			rows = append(rows, rowPlan{kind: rowLane, depth: depth})
+			if !r.opts.Compact {
+				rows = append(rows, rowPlan{kind: rowSpacer})
+			}
+		}
+	}
+	return rows
+}
+
+func groupDepth(items []wavejson.Item) int {
+	d := 0
+	for _, it := range items {
+		if it.Group != nil {
+			d = max(d, 1+groupDepth(it.Group.Items))
+		}
+	}
+	return d
+}
+
+func nameWidth(items []wavejson.Item) int {
+	w := 0
+	for _, it := range items {
+		switch {
+		case it.Group != nil:
+			w = max(w, nameWidth(it.Group.Items))
+		case it.Signal != nil:
+			w = max(w, lipgloss.Width(it.Signal.Name))
+		}
+	}
+	return w
+}
+
+func (r *renderer) centered(s string, y int, st *lipgloss.Style) {
+	w := r.c.w - r.x0
+	x := r.x0 + max(0, (w-lipgloss.Width(s))/2)
+	r.c.text(x, y, s, st)
+}
+
+func (r *renderer) drawTicks(p rowPlan, y, cycles int, boundary bool) {
+	n := cycles
+	if boundary {
+		n++
+	}
+	for i := range n {
+		if p.every > 1 && i%p.every != 0 {
+			continue
+		}
+		label := p.tick.Label(i)
+		if label == "" {
+			continue
+		}
+		x := r.x0 + i*r.cw
+		if !boundary {
+			x += r.cw / 2
+		}
+		r.c.text(x-utf8.RuneCountInString(label)/2, y, label, &r.t.Tick)
+	}
+}
+
+// drawLane renders a two-row lane whose top row is y.
+func (r *renderer) drawLane(p rowPlan, y, cycles int) {
+	if p.sig == nil {
+		return
+	}
+	g, t := r.g, r.t
+	name := p.sig.Name
+	nameX := r.x0 - 1 - lipgloss.Width(name)
+	r.c.text(nameX, y+1, name, &t.Name)
+
+	ln := p.lane
+	li := len(r.lanes)
+	r.lanes = append(r.lanes, laneRow{ln: ln, top: y})
+	for nd := range ln.nodes {
+		r.nodes[nd] = li
+	}
+
+	total := cycles * r.cw
+	top, bot := y, y+1
+	for x := range total {
+		cur := ln.state(x)
+		if cur.k == kBlank {
+			continue
+		}
+		prev, next := ln.state(x-1), ln.state(x+1)
+		if x == 0 {
+			prev = cell{k: ln.lead}
+		}
+		cx := r.x0 + x
+		pl, cl, nl := prev.k.level(), cur.k.level(), next.k.level()
+		lineSt := r.levelStyle(cur.k)
+		lineGlyph := g.Line
+		if cur.k == kWeakHigh || cur.k == kWeakLow {
+			lineGlyph = g.Weak
+		}
+
+		if cl == lvBus {
+			switch {
+			case prev != cur:
+				// Opening boundary.
+				switch pl {
+				case lvTop:
+					r.c.put(cx, top, g.Down, &t.Line)
+					r.c.put(cx, bot, g.Down, &t.Line)
+				case lvBottom:
+					r.c.put(cx, top, g.Up, &t.Line)
+					r.c.put(cx, bot, g.Up, &t.Line)
+				default:
+					r.c.put(cx, top, g.Up, &t.Line)
+					r.c.put(cx, bot, g.Down, &t.Line)
+				}
+			case next != cur:
+				// Closing boundary.
+				switch nl {
+				case lvTop:
+					r.c.put(cx, top, g.Up, &t.Line)
+					r.c.put(cx, bot, g.Up, &t.Line)
+				case lvBottom:
+					r.c.put(cx, top, g.Down, &t.Line)
+					r.c.put(cx, bot, g.Down, &t.Line)
+				default:
+					r.c.put(cx, top, g.Down, &t.Line)
+					r.c.put(cx, bot, g.Up, &t.Line)
+				}
+			case cur.k == kUndef:
+				r.c.put(cx, top, g.Fill, &t.Undefined)
+				r.c.put(cx, bot, g.Fill, &t.Undefined)
+			default:
+				st := &t.Bus[ln.items[cur.item].color]
+				if t.BusFill {
+					r.c.put(cx, top, ' ', st)
+					r.c.put(cx, bot, ' ', st)
+				} else {
+					r.c.put(cx, bot, g.Line, &t.Line)
+				}
+			}
+			continue
+		}
+
+		// Line levels: transition glyph where the level changes.
+		if pl != cl && pl != lvNone && pl != lvBus {
+			st := &t.Line
+			tl, tr, bl, br := g.TL, g.TR, g.BL, g.BR
+			if ln.marks[x] {
+				st = &t.Mark
+				tl, tr, bl, br = g.MarkTL, g.MarkTR, g.MarkBL, g.MarkBR
+			}
+			switch {
+			case pl == lvBottom && cl == lvTop:
+				r.c.put(cx, top, tl, st)
+				r.c.put(cx, bot, br, st)
+			case pl == lvTop && cl == lvBottom:
+				r.c.put(cx, top, tr, st)
+				r.c.put(cx, bot, bl, st)
+			case pl == lvTop && cl == lvMid:
+				r.c.put(cx, top, tr, st)
+			case pl == lvBottom && cl == lvMid:
+				r.c.put(cx, top, g.Mid, &t.HighZ)
+				r.c.put(cx, bot, br, st)
+			case pl == lvMid && cl == lvTop:
+				r.c.put(cx, top, tl, st)
+			case pl == lvMid && cl == lvBottom:
+				r.c.put(cx, top, g.Mid, &t.HighZ)
+				r.c.put(cx, bot, tl, st)
+			}
+			continue
+		}
+		switch cl {
+		case lvTop:
+			r.c.put(cx, top, lineGlyph, lineSt)
+		case lvBottom:
+			r.c.put(cx, bot, lineGlyph, lineSt)
+		case lvMid:
+			r.c.put(cx, top, g.Mid, &t.HighZ)
+		}
+	}
+
+	// Bus labels.
+	for x := 0; x < total; {
+		cur := ln.state(x)
+		if cur.k != kData {
+			x++
+			continue
+		}
+		e := x + 1
+		for e < total && ln.state(e) == cur {
+			e++
+		}
+		item := ln.items[cur.item]
+		if w := e - x - 2; w > 0 && item.label != "" {
+			label := fit(item.label, w, g.Ellipsis)
+			lx := x + 1 + (w-utf8.RuneCountInString(label))/2
+			r.c.text(r.x0+lx, top, label, &t.Bus[item.color])
+		}
+		x = e
+	}
+
+	for _, gx := range ln.gaps {
+		if gx >= 0 && gx < total {
+			r.c.put(r.x0+gx, top, g.Gap, &t.Gap)
+			r.c.put(r.x0+gx, bot, g.Gap, &t.Gap)
+		}
+	}
+}
+
+func (r *renderer) levelStyle(k kind) *lipgloss.Style {
+	switch k {
+	case kWeakHigh, kWeakLow:
+		return &r.t.Weak
+	case kHighZ:
+		return &r.t.HighZ
+	}
+	return &r.t.Line
+}
+
+// fit truncates s to w cells, ending with an ellipsis when cut.
+func fit(s string, w int, ellipsis rune) string {
+	rs := []rune(s)
+	if len(rs) <= w {
+		return s
+	}
+	if w < 2 {
+		return string(rs[:w])
+	}
+	return string(rs[:w-1]) + string(ellipsis)
+}
+
+var edgeRe = regexp.MustCompile(`^\s*(\S)\s*([-~|<>+]+)\s*(\S)\s*(.*?)\s*$`)
+
+// drawEdges overlays node-to-node arrows.
+func (r *renderer) drawEdges() {
+	for _, e := range r.d.Edge {
+		m := edgeRe.FindStringSubmatch(e)
+		if m == nil {
+			continue
+		}
+		a, _ := utf8.DecodeRuneInString(m[1])
+		b, _ := utf8.DecodeRuneInString(m[3])
+		la, oka := r.nodes[a]
+		lb, okb := r.nodes[b]
+		if !oka || !okb {
+			continue
+		}
+		shape := m[2]
+		headB := strings.Contains(shape, ">") || strings.Contains(shape, "+")
+		headA := strings.Contains(shape, "<") || strings.Contains(shape, "+")
+		r.drawEdge(r.lanes[la], r.lanes[la].ln.nodes[a], r.lanes[lb], r.lanes[lb].ln.nodes[b], headA, headB, m[4])
+	}
+}
+
+func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB bool, label string) {
+	g, t := r.g, r.t
+	st, lst := &t.Edge, &t.EdgeLabel
+	xa += r.x0
+	xb += r.x0
+	spacer := !r.opts.Compact
+	below := func(l laneRow) int {
+		if spacer {
+			return l.top + 2
+		}
+		return l.top + 1
+	}
+
+	putLabel := func(x0, x1, y int) bool {
+		lo, hi := min(x0, x1), max(x0, x1)
+		w := hi - lo - 1
+		n := utf8.RuneCountInString(label)
+		if label == "" || n > w {
+			return false
+		}
+		r.c.text(lo+1+(w-n)/2, y, label, lst)
+		return true
+	}
+
+	switch {
+	case la.top == lb.top:
+		y := below(la)
+		lo, hi := min(xa, xb), max(xa, xb)
+		r.c.hline(lo, hi, y, g.EdgeH, st)
+		if spacer {
+			r.c.put(xa, y, g.Anchor, st)
+			r.c.put(xb, y, g.Anchor, st)
+		}
+		if headB {
+			r.c.put(xb, y, arrowH(g, xb > xa), st)
+		}
+		if headA {
+			r.c.put(xa, y, arrowH(g, xa > xb), st)
+		}
+		putLabel(lo, hi, y)
+	case la.top < lb.top:
+		// Down: turn on the row below a, drop onto b's top row.
+		y := below(la)
+		if xa == xb {
+			r.c.vline(xa, y, lb.top-1, g.EdgeV, st)
+		} else {
+			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
+			if xb > xa {
+				r.c.put(xa, y, g.BL, st)
+				r.c.put(xb, y, g.TR, st)
+			} else {
+				r.c.put(xa, y, g.BR, st)
+				r.c.put(xb, y, g.TL, st)
+			}
+			r.c.vline(xb, y+1, lb.top-1, g.EdgeV, st)
+		}
+		if headB {
+			r.c.put(xb, lb.top, g.ArrowDown, st)
+		}
+		if headA {
+			r.c.put(xa, la.top+1, g.ArrowUp, st)
+		}
+		if !putLabel(xa, xb, y) {
+			r.c.text(xb+1, (y+lb.top)/2, label, lst)
+		}
+	default:
+		// Up: turn on the row above a, rise onto b's bottom row.
+		y := la.top - 1
+		if xa == xb {
+			r.c.vline(xa, below(lb), y, g.EdgeV, st)
+		} else {
+			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
+			if xb > xa {
+				r.c.put(xa, y, g.TL, st)
+				r.c.put(xb, y, g.BR, st)
+			} else {
+				r.c.put(xa, y, g.TR, st)
+				r.c.put(xb, y, g.BL, st)
+			}
+			r.c.vline(xb, below(lb), y-1, g.EdgeV, st)
+		}
+		if headB {
+			r.c.put(xb, lb.top+1, g.ArrowUp, st)
+		}
+		if headA {
+			r.c.put(xa, la.top, g.ArrowDown, st)
+		}
+		if !putLabel(xa, xb, y) {
+			r.c.text(xb+1, (y+lb.top+1)/2, label, lst)
+		}
+	}
+}
+
+func arrowH(g *Glyphs, right bool) rune {
+	if right {
+		return g.ArrowRight
+	}
+	return g.ArrowLeft
+}

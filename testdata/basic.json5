@@ -1,0 +1,16 @@
+{ signal: [
+  { name: 'clk',  wave: 'P.....|...' },
+  { name: 'bus',  wave: 'x.345x|=.x', data: ['head', 'body', 'tail', 'data'] },
+  { name: 'wire', wave: '0.1..0|1.0' },
+  {},
+  ['mem',
+    { name: 'addr', wave: 'x=.=.x', data: ['0x10', '0x14'] },
+    { name: 'we',   wave: 'z0..1z' },
+    ['flags',
+      { name: 'pu', wave: '0u..d.' },
+    ],
+  ],
+  { name: 'ack',  wave: '1.....|01.', node: '..a....b' },
+  { name: 'req',  wave: '0.1..0|1.0', node: '..c....d' },
+], head: { text: 'Example', tick: 0 }, foot: { tock: 0, every: 2 },
+edge: ['a~>b t1', 'c->d', 'a-|>d cross'] }

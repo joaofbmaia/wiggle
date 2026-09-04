@@ -1,0 +1,5 @@
+{signal: [
+  {name: 'a', wave: '01.0.1', node: '.a.b..'},
+  {name: 'b', wave: '0.1.0.', node: '..c..d'},
+  {name: 'c', wave: '0..10.', node: '...e..'},
+], edge: ['a->b same', 'c~>e down', 'd~>e'], head: {tock: 1}, foot: {text: 'foot', tick: 5, every: 2}}

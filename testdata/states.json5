@@ -1,0 +1,8 @@
+{signal: [
+  {name: 'levels', wave: '01z10zx=z'},
+  {name: 'weak',   wave: '0ud1ud0'},
+  {name: 'bus',    wave: '=23456789', data: 'a b c d e f g h i'},
+  {name: 'narrow', wave: '2222', data: ['long label', 'ab', 'abc', 'abcd']},
+  {name: 'gaps',   wave: '0.|1.|=.|', data: ['x']},
+  {name: 'xs',     wave: 'xx.=x', data: ['q']},
+]}

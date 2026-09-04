@@ -1,0 +1,9 @@
+{signal: [
+  {name: 'p', wave: 'p...'},
+  {name: 'P', wave: 'P...'},
+  {name: 'n', wave: 'n...'},
+  {name: 'N', wave: 'N...'},
+  {name: 'hl', wave: 'lhLH'},
+  {name: 'period', wave: 'p..', period: 2},
+  {name: 'phase', wave: '01.0', phase: 0.5},
+]}
