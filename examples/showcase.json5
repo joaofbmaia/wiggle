@@ -1,0 +1,14 @@
+// A little of everything: the README picture.
+{ signal: [
+  { name: 'clk',   wave: 'P.......|...' },
+  { name: 'valid', wave: '01......|.0.', node: '.a.......' },
+  { name: 'ready', wave: '0.1.....|..0', node: '..b......' },
+  { name: 'data',  wave: 'x3456789|=.x', data: ['cmd', 'addr', 'len', 'crc', 'd0', 'd1', 'd2', 'pad'] },
+  {},
+  ['bus',
+    { name: 'oe',   wave: '0...1...|..0' },
+    { name: 'dq',   wave: 'z...=.=.|=.z', data: ['0xCA', '0xFE', '0x42'] },
+    { name: 'pull', wave: '0u..d...|...' },
+  ],
+], edge: ['a~>b setup'],
+   head: { text: 'Wiggle', tick: 0 }, foot: { text: 'a WaveDrom renderer for the terminal', tock: 0, every: 4 } }

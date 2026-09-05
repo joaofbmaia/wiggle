@@ -1,4 +1,4 @@
-# wiggle
+# Wiggle
 
 WaveDrom timing diagrams, rendered in the terminal with the
 [Charm](https://charm.land) stack: Bubble Tea, Bubbles and Lip Gloss.
@@ -52,7 +52,7 @@ fill, `g`/`G` top/bottom, `?` help, `q` quit.
 
 ## Examples
 
-`examples/` has ready-made diagrams: `spi`, `i2c`, `uart`, `axi-handshake`,
+`examples/` has ready-made diagrams: `showcase` (the picture above), `spi`, `i2c`, `uart`, `axi-handshake`,
 `sram`, `ddr` (period/phase), `pipeline` (groups), `gaps` (time breaks),
 `edges` (every arrow style), `states` (every wave character),
 `README-demo.md` for `wiggle md`, and `tutorial/` with every step of the
