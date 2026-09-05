@@ -117,6 +117,7 @@ type renderer struct {
 	lanes    []laneRow
 	nodes    map[rune]int // node -> lane index
 	deferred []deferredText
+	heads    []headCell
 	c        *canvas
 }
 
@@ -523,14 +524,37 @@ func (r *renderer) drawEdges() {
 	for _, d := range r.deferred {
 		r.c.text(d.x, d.y, d.s, d.st)
 	}
+	for _, h := range r.heads {
+		r.c.put(h.x, h.y, h.r, &r.t.Edge)
+	}
+	g := r.g
 	for _, l := range r.lanes {
 		for name, x := range l.ln.nodes {
 			if unicode.IsUpper(name) {
 				continue
 			}
-			r.c.put(r.x0+x, l.top+1, name, &r.t.EdgeLabel)
+			// Step aside from an arrow head sitting on the node.
+			x += r.x0
+			switch r.c.at(x, l.top+1) {
+			case g.ArrowRight:
+				x++
+			case g.ArrowLeft:
+				x--
+			}
+			r.c.put(x, l.top+1, name, &r.t.EdgeLabel)
 		}
 	}
+}
+
+// head queues an arrow head; heads are painted after every edge line so a
+// later edge cannot erase them.
+func (r *renderer) head(x, y int, glyph rune) {
+	r.heads = append(r.heads, headCell{x, y, glyph})
+}
+
+type headCell struct {
+	x, y int
+	r    rune
 }
 
 // drawEdge routes an arrow from node a to node b. Horizontal runs use the
@@ -572,10 +596,10 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 		r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
 		start()
 		if headB {
-			r.c.put(xb, y, arrowH(g, right), st)
+			r.head(xb, y, arrowH(g, right))
 		}
 		if headA {
-			r.c.put(xa, y, arrowH(g, !right), st)
+			r.head(xa, y, arrowH(g, !right))
 		}
 		putLabel(xa, xb, y)
 	case la.top < lb.top:
@@ -583,7 +607,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 		if xa == xb {
 			r.c.vline(xa, y+1, lb.top-1, g.EdgeV, st)
 			if headA {
-				r.c.put(xa, y+1, g.ArrowUp, st)
+				r.head(xa, y+1, g.ArrowUp)
 			}
 		} else {
 			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
@@ -595,11 +619,11 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			}
 			r.c.vline(xb, y+1, lb.top-1, g.EdgeV, st)
 			if headA {
-				r.c.put(xa, y, arrowH(g, !right), st)
+				r.head(xa, y, arrowH(g, !right))
 			}
 		}
 		if headB {
-			r.c.put(xb, lb.top, g.ArrowDown, st)
+			r.head(xb, lb.top, g.ArrowDown)
 		}
 		if !putLabel(xa, xb, y) {
 			r.deferred = append(r.deferred, deferredText{xb + 1, (y + lb.top) / 2, label, lst})
@@ -610,7 +634,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 		if xa == xb {
 			r.c.vline(xa, bot+1, y-1, g.EdgeV, st)
 			if headA {
-				r.c.put(xa, y-1, g.ArrowDown, st)
+				r.head(xa, y-1, g.ArrowDown)
 			}
 		} else {
 			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
@@ -622,11 +646,11 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			}
 			r.c.vline(xb, bot+1, y-1, g.EdgeV, st)
 			if headA {
-				r.c.put(xa, y, arrowH(g, !right), st)
+				r.head(xa, y, arrowH(g, !right))
 			}
 		}
 		if headB {
-			r.c.put(xb, bot, g.ArrowUp, st)
+			r.head(xb, bot, g.ArrowUp)
 		}
 		if !putLabel(xa, xb, y) {
 			r.deferred = append(r.deferred, deferredText{xb + 1, (y + bot) / 2, label, lst})
