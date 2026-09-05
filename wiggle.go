@@ -10,6 +10,7 @@ import (
 	"image/color"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/joaofbmaia/wiggle/wavejson"
 )
 
@@ -53,22 +54,22 @@ func (o Options) theme() *Theme {
 
 // Glyphs is the character set used to draw waveforms.
 //
-// Lanes are two rows tall: the top row carries the high level, the bottom row
-// the low level. Corners join the two rows on transitions.
+// Lanes are three rows tall: high, mid (high-impedance, bus labels) and
+// low. Corners and verticals join the rows on transitions.
 type Glyphs struct {
 	Line rune // level line
 	Weak rune // weak (pull-up/pull-down) level line
-	Mid  rune // high-impedance line, drawn on the top row along its bottom edge
 	Fill rune // undefined fill
 	Gap  rune // time break marker
+	V    rune // vertical stroke of a full swing
 
-	// Corners. TL is ╭: joins down and right. Rising edges use TL over BR,
-	// falling edges use TR over BL.
+	// Corners. TL is ╭: joins down and right. Rising edges use TL, V, BR;
+	// falling edges use TR, V, BL.
 	TL, TR, BL, BR rune
-	// Emphasized corners for marked clock edges (P, N, H, L).
-	MarkTL, MarkTR, MarkBL, MarkBR rune
-	// Diagonals for bus boundaries: Up is ╱, Down is ╲.
-	Up, Down rune
+	// Emphasized strokes for marked clock edges (P, N, H, L).
+	MarkTL, MarkTR, MarkBL, MarkBR, MarkV rune
+	// Tees joining level lines to bus outlines: ┬ ┴ ┤ ├.
+	TeeDown, TeeUp, TeeLeft, TeeRight rune
 
 	// Group bracket.
 	GroupTop, GroupBar, GroupBottom rune
@@ -83,10 +84,10 @@ type Glyphs struct {
 
 // Rounded is the default glyph set with rounded corners.
 var Rounded = Glyphs{
-	Line: '─', Weak: '╌', Mid: '▁', Fill: '░', Gap: '┆',
+	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
 	TL: '╭', TR: '╮', BL: '╰', BR: '╯',
-	MarkTL: '┎', MarkTR: '┒', MarkBL: '┖', MarkBR: '┚',
-	Up: '╱', Down: '╲',
+	MarkTL: '┎', MarkTR: '┒', MarkBL: '┖', MarkBR: '┚', MarkV: '┃',
+	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
 	GroupTop: '╭', GroupBar: '│', GroupBottom: '╰',
 	EdgeH: '─', EdgeV: '│',
 	ArrowRight: '▶', ArrowLeft: '◀', ArrowUp: '▲', ArrowDown: '▼',
@@ -95,10 +96,10 @@ var Rounded = Glyphs{
 
 // Sharp is a glyph set with square corners.
 var Sharp = Glyphs{
-	Line: '─', Weak: '╌', Mid: '▁', Fill: '░', Gap: '┆',
+	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
 	TL: '┌', TR: '┐', BL: '└', BR: '┘',
-	MarkTL: '┎', MarkTR: '┒', MarkBL: '┖', MarkBR: '┚',
-	Up: '╱', Down: '╲',
+	MarkTL: '┎', MarkTR: '┒', MarkBL: '┖', MarkBR: '┚', MarkV: '┃',
+	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
 	GroupTop: '┌', GroupBar: '│', GroupBottom: '└',
 	EdgeH: '─', EdgeV: '│',
 	ArrowRight: '▶', ArrowLeft: '◀', ArrowUp: '▲', ArrowDown: '▼',
@@ -107,10 +108,10 @@ var Sharp = Glyphs{
 
 // ASCII is a glyph set restricted to 7-bit ASCII.
 var ASCII = Glyphs{
-	Line: '-', Weak: '.', Mid: '_', Fill: 'x', Gap: '~',
+	Line: '-', Weak: '.', Fill: 'x', Gap: ':', V: '|',
 	TL: '.', TR: '.', BL: '\'', BR: '\'',
-	MarkTL: '+', MarkTR: '+', MarkBL: '+', MarkBR: '+',
-	Up: '/', Down: '\\',
+	MarkTL: '+', MarkTR: '+', MarkBL: '+', MarkBR: '+', MarkV: '#',
+	TeeDown: '+', TeeUp: '+', TeeLeft: '+', TeeRight: '+',
 	GroupTop: '.', GroupBar: '|', GroupBottom: '\'',
 	EdgeH: '-', EdgeV: '|',
 	ArrowRight: '>', ArrowLeft: '<', ArrowUp: '^', ArrowDown: 'v',
@@ -145,24 +146,29 @@ var (
 )
 
 // DefaultTheme returns the Charm-flavoured theme for a dark or light
-// terminal background. Bus segments are filled.
+// terminal background. Bus segments are filled with the CharmTone palette.
 func DefaultTheme(dark bool) Theme {
 	ld := lipgloss.LightDark(dark)
 	t := baseTheme(ld)
 	t.BusFill = true
-	fills := [8][2]string{
-		{"#EAEAEA", "#3B3B4F"}, // neutral
-		{"#FFF1A8", "#6B5E14"}, // yellow
-		{"#FFDDB5", "#7A4A1F"}, // orange
-		{"#B9DEFF", "#1F4A7A"}, // blue
-		{"#C4F5F7", "#1F6466"}, // cyan
-		{"#CDF7C4", "#1F6B3F"}, // green
-		{"#F9CCF6", "#7A2F6A"}, // pink
-		{"#D8D4FF", "#463A8A"}, // purple
+	fills := [8][2]charmtone.Key{
+		{charmtone.Ash, charmtone.Iron},       // neutral
+		{charmtone.Zest, charmtone.Zest},      // yellow
+		{charmtone.Yam, charmtone.Tang},       // orange
+		{charmtone.Sardine, charmtone.Malibu}, // blue
+		{charmtone.Lichen, charmtone.Turtle},  // cyan
+		{charmtone.Bok, charmtone.Julep},      // green
+		{charmtone.Blush, charmtone.Dolly},    // pink
+		{charmtone.Hazy, charmtone.Charple},   // purple
 	}
-	fg := ld(lipgloss.Color("#1C1C1C"), lipgloss.Color("#F5F5F5"))
 	for i, f := range fills {
-		t.Bus[i] = lipgloss.NewStyle().Foreground(fg).Background(ld(lipgloss.Color(f[0]), lipgloss.Color(f[1])))
+		fg := color.Color(charmtone.Pepper)
+		if i == 0 {
+			fg = ld(charmtone.Pepper, charmtone.Salt)
+		} else if i == 7 {
+			fg = charmtone.Butter
+		}
+		t.Bus[i] = lipgloss.NewStyle().Foreground(fg).Background(ld(f[0], f[1]))
 	}
 	return t
 }
@@ -172,18 +178,18 @@ func DefaultTheme(dark bool) Theme {
 func FlatTheme(dark bool) Theme {
 	ld := lipgloss.LightDark(dark)
 	t := baseTheme(ld)
-	inks := [8][2]string{
-		{"#3C3C3C", "#DDDDDD"}, // neutral
-		{"#9A7B00", "#F2D45C"}, // yellow
-		{"#B85C00", "#FFAB5E"}, // orange
-		{"#1D5FA8", "#7CB8FF"}, // blue
-		{"#0D7C80", "#5FE0E6"}, // cyan
-		{"#1F7A3A", "#6DE38F"}, // green
-		{"#B0308F", "#F78FE0"}, // pink
-		{"#5A4BC2", "#A79BFF"}, // purple
+	inks := [8][2]charmtone.Key{
+		{charmtone.Charcoal, charmtone.Ash},  // neutral
+		{charmtone.Cumin, charmtone.Zest},    // yellow
+		{charmtone.Paprika, charmtone.Tang},  // orange
+		{charmtone.Damson, charmtone.Malibu}, // blue
+		{charmtone.Zinc, charmtone.Turtle},   // cyan
+		{charmtone.Guac, charmtone.Julep},    // green
+		{charmtone.Chili, charmtone.Dolly},   // pink
+		{charmtone.Grape, charmtone.Hazy},    // purple
 	}
 	for i, c := range inks {
-		t.Bus[i] = lipgloss.NewStyle().Foreground(ld(lipgloss.Color(c[0]), lipgloss.Color(c[1])))
+		t.Bus[i] = lipgloss.NewStyle().Foreground(ld(c[0], c[1]))
 	}
 	return t
 }
@@ -192,25 +198,22 @@ func FlatTheme(dark bool) Theme {
 func PlainTheme() Theme { return Theme{} }
 
 func baseTheme(ld lipgloss.LightDarkFunc) Theme {
-	c := func(light, dark string) color.Color {
-		return ld(lipgloss.Color(light), lipgloss.Color(dark))
-	}
-	indigo := c("#5A56E0", "#7571F9")
-	fuchsia := c("#F25D94", "#F780E2")
-	ink := c("#3C3C3C", "#D9D9D9")
-	muted := c("#8A8A8A", "#6E6E6E")
+	purple := ld(charmtone.Charple, charmtone.Charple)
+	pink := ld(charmtone.Macaron, charmtone.Dolly)
+	ink := ld(charmtone.Charcoal, charmtone.Ash)
+	muted := ld(charmtone.Squid, charmtone.Oyster)
 	return Theme{
-		Name:      lipgloss.NewStyle().Foreground(indigo).Bold(true),
+		Name:      lipgloss.NewStyle().Foreground(purple).Bold(true),
 		Line:      lipgloss.NewStyle().Foreground(ink),
-		Mark:      lipgloss.NewStyle().Foreground(fuchsia).Bold(true),
+		Mark:      lipgloss.NewStyle().Foreground(pink).Bold(true),
 		Weak:      lipgloss.NewStyle().Foreground(muted),
 		HighZ:     lipgloss.NewStyle().Foreground(muted),
 		Undefined: lipgloss.NewStyle().Foreground(muted),
-		Gap:       lipgloss.NewStyle().Foreground(fuchsia),
-		Group:     lipgloss.NewStyle().Foreground(indigo).Bold(true),
-		GroupBar:  lipgloss.NewStyle().Foreground(indigo),
-		Edge:      lipgloss.NewStyle().Foreground(fuchsia),
-		EdgeLabel: lipgloss.NewStyle().Foreground(fuchsia).Italic(true),
+		Gap:       lipgloss.NewStyle().Foreground(pink),
+		Group:     lipgloss.NewStyle().Foreground(purple).Bold(true),
+		GroupBar:  lipgloss.NewStyle().Foreground(purple),
+		Edge:      lipgloss.NewStyle().Foreground(pink),
+		EdgeLabel: lipgloss.NewStyle().Foreground(pink).Italic(true),
 		Title:     lipgloss.NewStyle().Foreground(ink).Bold(true),
 		Tick:      lipgloss.NewStyle().Foreground(muted),
 	}

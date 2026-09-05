@@ -183,7 +183,7 @@ func (r *renderer) render() string {
 	height := 0
 	for _, p := range rows {
 		if p.kind == rowLane {
-			height += 2
+			height += laneRows
 		} else {
 			height++
 		}
@@ -196,7 +196,7 @@ func (r *renderer) render() string {
 	for _, p := range rows {
 		rowsHere := 1
 		if p.kind == rowLane {
-			rowsHere = 2
+			rowsHere = laneRows
 		}
 		switch p.kind {
 		case rowGroupHead:
@@ -309,7 +309,10 @@ func (r *renderer) drawTicks(p rowPlan, y, cycles int, boundary bool) {
 	}
 }
 
-// drawLane renders a two-row lane whose top row is y.
+// laneRows is the height of a signal lane: high, mid and low rows.
+const laneRows = 3
+
+// drawLane renders a lane whose top row is y.
 func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 	if p.sig == nil {
 		return
@@ -327,7 +330,12 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 	}
 
 	total := cycles * r.cw
-	top, bot := y, y+1
+	hi, mid, lo := y, y+1, y+2
+	put3 := func(x int, a, b, c rune, st *lipgloss.Style) {
+		r.c.put(x, hi, a, st)
+		r.c.put(x, mid, b, st)
+		r.c.put(x, lo, c, st)
+	}
 	for x := range total {
 		cur := ln.state(x)
 		if cur.k == kBlank {
@@ -339,90 +347,89 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 		}
 		cx := r.x0 + x
 		pl, cl, nl := prev.k.level(), cur.k.level(), next.k.level()
-		lineSt := r.levelStyle(cur.k)
-		lineGlyph := g.Line
-		if cur.k == kWeakHigh || cur.k == kWeakLow {
-			lineGlyph = g.Weak
-		}
 
 		if cl == lvBus {
 			switch {
 			case prev != cur:
-				// Opening boundary.
+				// Opening boundary; shared with the previous bus item if any.
+				a, b, c := g.TL, g.V, g.BL
 				switch pl {
 				case lvTop:
-					r.c.put(cx, top, g.Down, &t.Line)
-					r.c.put(cx, bot, g.Down, &t.Line)
+					a = g.TeeDown
 				case lvBottom:
-					r.c.put(cx, top, g.Up, &t.Line)
-					r.c.put(cx, bot, g.Up, &t.Line)
-				default:
-					r.c.put(cx, top, g.Up, &t.Line)
-					r.c.put(cx, bot, g.Down, &t.Line)
+					c = g.TeeUp
+				case lvMid:
+					b = g.TeeLeft
+				case lvBus:
+					a, c = g.TeeDown, g.TeeUp
 				}
-			case next != cur:
+				put3(cx, a, b, c, &t.Line)
+			case next != cur && nl != lvBus:
 				// Closing boundary.
+				a, b, c := g.TR, g.V, g.BR
 				switch nl {
 				case lvTop:
-					r.c.put(cx, top, g.Up, &t.Line)
-					r.c.put(cx, bot, g.Up, &t.Line)
+					a = g.TeeDown
 				case lvBottom:
-					r.c.put(cx, top, g.Down, &t.Line)
-					r.c.put(cx, bot, g.Down, &t.Line)
-				default:
-					r.c.put(cx, top, g.Down, &t.Line)
-					r.c.put(cx, bot, g.Up, &t.Line)
+					c = g.TeeUp
+				case lvMid:
+					b = g.TeeRight
 				}
+				put3(cx, a, b, c, &t.Line)
 			case cur.k == kUndef:
-				r.c.put(cx, top, g.Fill, &t.Undefined)
-				r.c.put(cx, bot, g.Fill, &t.Undefined)
+				put3(cx, g.Line, g.Fill, g.Line, &t.Line)
+				r.c.put(cx, mid, g.Fill, &t.Undefined)
 			default:
 				st := &t.Bus[ln.items[cur.item].color]
 				if t.BusFill {
-					r.c.put(cx, top, ' ', st)
-					r.c.put(cx, bot, ' ', st)
+					put3(cx, g.Line, ' ', g.Line, &t.Line)
+					r.c.put(cx, mid, ' ', st)
 				} else {
-					r.c.put(cx, bot, g.Line, &t.Line)
+					put3(cx, g.Line, ' ', g.Line, st)
+					r.c.put(cx, mid, ' ', nil)
 				}
 			}
 			continue
 		}
 
-		// Line levels: transition glyph where the level changes.
 		if pl != cl && pl != lvNone && pl != lvBus {
 			st := &t.Line
-			tl, tr, bl, br := g.TL, g.TR, g.BL, g.BR
+			tl, tr, bl, br, v := g.TL, g.TR, g.BL, g.BR, g.V
 			if ln.marks[x] {
 				st = &t.Mark
-				tl, tr, bl, br = g.MarkTL, g.MarkTR, g.MarkBL, g.MarkBR
+				tl, tr, bl, br, v = g.MarkTL, g.MarkTR, g.MarkBL, g.MarkBR, g.MarkV
 			}
 			switch {
 			case pl == lvBottom && cl == lvTop:
-				r.c.put(cx, top, tl, st)
-				r.c.put(cx, bot, br, st)
+				put3(cx, tl, v, br, st)
 			case pl == lvTop && cl == lvBottom:
-				r.c.put(cx, top, tr, st)
-				r.c.put(cx, bot, bl, st)
+				put3(cx, tr, v, bl, st)
 			case pl == lvTop && cl == lvMid:
-				r.c.put(cx, top, tr, st)
-			case pl == lvBottom && cl == lvMid:
-				r.c.put(cx, top, g.Mid, &t.HighZ)
-				r.c.put(cx, bot, br, st)
+				r.c.put(cx, hi, tr, st)
+				r.c.put(cx, mid, bl, st)
 			case pl == lvMid && cl == lvTop:
-				r.c.put(cx, top, tl, st)
+				r.c.put(cx, hi, tl, st)
+				r.c.put(cx, mid, br, st)
+			case pl == lvBottom && cl == lvMid:
+				r.c.put(cx, mid, tl, st)
+				r.c.put(cx, lo, br, st)
 			case pl == lvMid && cl == lvBottom:
-				r.c.put(cx, top, g.Mid, &t.HighZ)
-				r.c.put(cx, bot, tl, st)
+				r.c.put(cx, mid, tr, st)
+				r.c.put(cx, lo, bl, st)
 			}
 			continue
 		}
+		glyph := g.Line
+		if cur.k == kWeakHigh || cur.k == kWeakLow {
+			glyph = g.Weak
+		}
 		switch cl {
 		case lvTop:
-			r.c.put(cx, top, lineGlyph, lineSt)
-		case lvBottom:
-			r.c.put(cx, bot, lineGlyph, lineSt)
+			r.c.put(cx, hi, glyph, r.levelStyle(cur.k))
 		case lvMid:
-			r.c.put(cx, top, g.Mid, &t.HighZ)
+			r.c.put(cx, mid, glyph, &t.HighZ)
+		case lvBottom:
+			r.c.put(cx, lo, glyph, r.levelStyle(cur.k))
 		}
 	}
 
@@ -437,19 +444,22 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 		for e < total && ln.state(e) == cur {
 			e++
 		}
+		end := e
+		if ln.state(e).k.level() != lvBus {
+			end-- // closing boundary occupies the last column
+		}
 		item := ln.items[cur.item]
-		if w := e - x - 2; w > 0 && item.label != "" {
+		if w := end - x - 1; w > 0 && item.label != "" {
 			label := fit(item.label, w, g.Ellipsis)
 			lx := x + 1 + (w-utf8.RuneCountInString(label))/2
-			r.c.text(r.x0+lx, top, label, &t.Bus[item.color])
+			r.c.text(r.x0+lx, mid, label, &t.Bus[item.color])
 		}
 		x = e
 	}
 
 	for _, gx := range ln.gaps {
 		if gx >= 0 && gx < total {
-			r.c.put(r.x0+gx, top, g.Gap, &t.Gap)
-			r.c.put(r.x0+gx, bot, g.Gap, &t.Gap)
+			put3(r.x0+gx, g.Gap, g.Gap, g.Gap, &t.Gap)
 		}
 	}
 }
@@ -507,9 +517,9 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 	spacer := !r.opts.Compact
 	below := func(l laneRow) int {
 		if spacer {
-			return l.top + 2
+			return l.top + laneRows
 		}
-		return l.top + 1
+		return l.top + laneRows - 1
 	}
 
 	putLabel := func(x0, x1, y int) bool {
@@ -559,7 +569,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			r.c.put(xb, lb.top, g.ArrowDown, st)
 		}
 		if headA {
-			r.c.put(xa, la.top+1, g.ArrowUp, st)
+			r.c.put(xa, la.top+laneRows-1, g.ArrowUp, st)
 		}
 		if !putLabel(xa, xb, y) {
 			r.c.text(xb+1, (y+lb.top)/2, label, lst)
@@ -581,7 +591,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			r.c.vline(xb, below(lb), y-1, g.EdgeV, st)
 		}
 		if headB {
-			r.c.put(xb, lb.top+1, g.ArrowUp, st)
+			r.c.put(xb, lb.top+laneRows-1, g.ArrowUp, st)
 		}
 		if headA {
 			r.c.put(xa, la.top, g.ArrowDown, st)

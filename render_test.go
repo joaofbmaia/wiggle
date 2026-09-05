@@ -94,7 +94,7 @@ func TestPhaseShiftsLeft(t *testing.T) {
 	base := render(t, `{signal:[{name:'a', wave:'0.1.'}]}`, o)
 	shifted := render(t, `{signal:[{name:'a', wave:'0.1.', phase:1}]}`, o)
 	// Rising edge moves from column 8 to column 4 relative to lane start.
-	x0 := strings.Index(base[1], "─")
+	x0 := strings.Index(base[2], "─")
 	if got := strings.IndexRune(base[0], '╭') - x0; got != 8 {
 		t.Fatalf("unshifted edge at %d", got)
 	}
@@ -110,7 +110,7 @@ func TestDataLabelsConsumedOnlyByNewItems(t *testing.T) {
 	o := plain()
 	o.Width = 8
 	lines := render(t, `{signal:[{name:'d', wave:'=.=|=', data:['one','two','three']}]}`, o)
-	top := lines[0]
+	top := lines[1]
 	for _, want := range []string{"one", "two", "three"} {
 		if !strings.Contains(top, want) {
 			t.Errorf("label %q missing in %q", want, top)
@@ -125,8 +125,8 @@ func TestLongLabelTruncated(t *testing.T) {
 	o := plain()
 	o.Width = 6
 	lines := render(t, `{signal:[{name:'d', wave:'=', data:['abcdefgh']}]}`, o)
-	if !strings.Contains(lines[0], "abc…") || strings.Contains(lines[0], "abcd") {
-		t.Errorf("want truncated label with ellipsis, got %q", lines[0])
+	if !strings.Contains(lines[1], "abc…") || strings.Contains(lines[1], "abcd") {
+		t.Errorf("want truncated label with ellipsis, got %q", lines[1])
 	}
 }
 
