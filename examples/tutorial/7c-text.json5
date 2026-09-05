@@ -1,4 +1,4 @@
-// Step 7. head / foot text as JsonML (styling is flattened to plain text)
+// Step 7. head / foot text as JsonML (tspan styling is flattened to plain text)
 {signal: [
   {name:'clk', wave: 'p.....PPPPp....' },
   {name:'dat', wave: 'x....2345x.....', data: 'a b c d' },

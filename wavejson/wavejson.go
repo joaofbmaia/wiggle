@@ -251,9 +251,14 @@ func stringify(v any) string {
 		return v.String()
 	case nil:
 		return ""
-	case []any: // WaveDrom tspan arrays: concatenate text parts.
+	case []any: // JsonML: [tag, {attrs}?, children...]; keep the text.
 		var b strings.Builder
-		for _, e := range v {
+		for i, e := range v {
+			if i == 0 {
+				if _, isTag := e.(string); isTag {
+					continue
+				}
+			}
 			b.WriteString(stringify(e))
 		}
 		return b.String()

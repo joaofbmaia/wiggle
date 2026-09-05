@@ -91,3 +91,13 @@ func TestStringEscapes(t *testing.T) {
 		t.Errorf("got %q want %q", got, want)
 	}
 }
+
+func TestJsonMLText(t *testing.T) {
+	d, err := Parse([]byte(`{signal:[], head:{text:['tspan', ['tspan', {class:'h1'}, 'Big '], 'and ', ['tspan', {dy:'-5'}, 'small']]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := d.Head.Text, "Big and small"; got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
