@@ -60,6 +60,7 @@ type lane struct {
 	sig   *wavejson.Signal
 	cells []cell
 	marks []bool // emphasized transition at this column
+	edges []bool // clock edge at this column, drawn even without a level change
 	gaps  []int  // columns carrying a time break
 	items []busItem
 	nodes map[rune]int // node name -> column
@@ -79,6 +80,7 @@ func expand(sig *wavejson.Signal, cw int) *lane {
 		sig:   sig,
 		cells: make([]cell, total),
 		marks: make([]bool, total),
+		edges: make([]bool, total),
 		nodes: map[rune]int{},
 	}
 	set := func(from, to int, c cell) {
@@ -180,6 +182,9 @@ func clock(ln *lane, s, e int, ch rune, set func(int, int, cell), mark func(int)
 	set(half, e, second)
 	if s == 0 {
 		ln.lead = second.k
+	}
+	if s >= 0 && s < len(ln.edges) {
+		ln.edges[s] = true
 	}
 	if ch == 'P' || ch == 'N' {
 		mark(s)

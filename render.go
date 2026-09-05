@@ -380,6 +380,21 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 			continue
 		}
 
+		// A clock edge that lands on the level it already had still draws
+		// its stroke, as WaveDrom does: a spike from the line to the far
+		// level.
+		if ln.edges[x] && pl == cl && (cl == lvTop || cl == lvBottom) {
+			st, v := &t.Line, g.V
+			if ln.marks[x] {
+				st, v = &t.Mark, g.MarkV
+			}
+			if cl == lvTop {
+				put3(cx, g.TeeDown, v, g.StubUp, st)
+			} else {
+				put3(cx, g.StubDown, v, g.TeeUp, st)
+			}
+			continue
+		}
 		if pl != cl && pl != lvNone && pl != lvBus {
 			st := &t.Line
 			tl, tr, bl, br, v := g.TL, g.TR, g.BL, g.BR, g.V
