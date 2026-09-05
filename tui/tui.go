@@ -57,6 +57,7 @@ type KeyMap struct {
 	ASCII   key.Binding
 	Fill    key.Binding
 	Compact key.Binding
+	Slim    key.Binding
 	Top     key.Binding
 	Bottom  key.Binding
 	Help    key.Binding
@@ -72,6 +73,7 @@ func DefaultKeyMap() KeyMap {
 		ASCII:   key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "ascii")),
 		Fill:    key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "fill")),
 		Compact: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "compact")),
+		Slim:    key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "slim")),
 		Top:     key.NewBinding(key.WithKeys("g", "home"), key.WithHelp("g/G", "top/bottom")),
 		Bottom:  key.NewBinding(key.WithKeys("G", "end")),
 		Help:    key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
@@ -88,7 +90,7 @@ func (k KeyMap) ShortHelp() []key.Binding {
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Scroll, k.Top, k.ZoomIn},
-		{k.ASCII, k.Fill, k.Compact},
+		{k.ASCII, k.Fill, k.Compact, k.Slim},
 		{k.Help, k.Quit},
 	}
 }
@@ -245,6 +247,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refresh()
 		case key.Matches(msg, m.KeyMap.Compact):
 			m.opts.Compact = !m.opts.Compact
+			m.refresh()
+		case key.Matches(msg, m.KeyMap.Slim):
+			m.opts.Slim = !m.opts.Slim
 			m.refresh()
 		case key.Matches(msg, m.KeyMap.Top):
 			m.vp.GotoTop()

@@ -41,6 +41,7 @@ Flags:
 | `--sharp` | square corners instead of rounded |
 | `--flat` | outline bus segments instead of filling them |
 | `--compact` | no blank row between signals |
+| `--slim` | two-row lanes (see below) |
 | `-p, --plain` | print instead of opening the viewer |
 | `md --wrap N` | Markdown word-wrap width (default 80) |
 | `md --style S` | Glamour style name or JSON file (`$GLAMOUR_STYLE`) |
@@ -48,7 +49,20 @@ Flags:
 Colors follow `NO_COLOR`, `CLICOLOR_FORCE` and the terminal's capabilities.
 
 Viewer keys: arrows or `hjkl` scroll, `+`/`-` zoom, `a` ASCII, `f` toggle bus
-fill, `c` compact, `g`/`G` top/bottom, `?` help, `q` quit.
+fill, `c` compact, `s` slim, `g`/`G` top/bottom, `?` help, `q` quit.
+
+## Slim lanes
+
+By default a signal takes three rows (high, mid, low) drawn with box-drawing
+characters. `--slim` (or `s` in the viewer) draws each signal in two rows by
+putting the level lines on the cell edges: `▔` for high, `▁` for low, and
+corners from *Symbols for Legacy Computing* (`🭽 🭾 🭼 🭿`) so strokes and
+lines meet exactly. Combined with `--compact` that is two rows per signal.
+
+Most modern terminals draw these glyphs themselves regardless of font
+(kitty, WezTerm, foot, Ghostty, Alacritty ≥ 0.13, Konsole, Windows Terminal,
+recent VTE); elsewhere you need a font that has them (Cascadia, Iosevka,
+Fira Code). Slim is skipped when output is not a color terminal.
 
 ## Markdown
 

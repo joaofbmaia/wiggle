@@ -104,14 +104,21 @@ type renderer struct {
 	g     *Glyphs
 	t     *Theme
 	cw    int // columns per cycle
-	x0    int // first lane column
-	lanes []laneRow
-	nodes map[rune]int // node -> lane index
-	c     *canvas
+	laneH int // rows per lane: 3, or 2 in slim mode
+	// slimBars caches bus-filled boundary stroke styles per bus color.
+	slimBars [8]*lipgloss.Style
+	x0       int // first lane column
+	lanes    []laneRow
+	nodes    map[rune]int // node -> lane index
+	c        *canvas
 }
 
 func newRenderer(d *wavejson.Diagram, opts Options) *renderer {
-	return &renderer{d: d, opts: opts, g: opts.glyphs(), t: opts.theme(), cw: opts.cycleWidth(d), nodes: map[rune]int{}}
+	h := 3
+	if opts.Slim {
+		h = 2
+	}
+	return &renderer{d: d, opts: opts, g: opts.glyphs(), t: opts.theme(), cw: opts.cycleWidth(d), laneH: h, nodes: map[rune]int{}}
 }
 
 // rowKind describes what a canvas row holds while laying out.
@@ -183,7 +190,7 @@ func (r *renderer) render() string {
 	height := 0
 	for _, p := range rows {
 		if p.kind == rowLane {
-			height += laneRows
+			height += r.laneH
 		} else {
 			height++
 		}
@@ -196,7 +203,7 @@ func (r *renderer) render() string {
 	for _, p := range rows {
 		rowsHere := 1
 		if p.kind == rowLane {
-			rowsHere = laneRows
+			rowsHere = r.laneH
 		}
 		switch p.kind {
 		case rowGroupHead:
@@ -309,25 +316,25 @@ func (r *renderer) drawTicks(p rowPlan, y, cycles int, boundary bool) {
 	}
 }
 
-// laneRows is the height of a signal lane: high, mid and low rows.
-const laneRows = 3
-
 // drawLane renders a lane whose top row is y.
 func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 	if p.sig == nil {
 		return
 	}
-	g, t := r.g, r.t
-	name := p.sig.Name
-	nameX := r.x0 - 1 - lipgloss.Width(name)
-	r.c.text(nameX, y+1, name, &t.Name)
-
 	ln := p.lane
 	li := len(r.lanes)
 	r.lanes = append(r.lanes, laneRow{ln: ln, top: y})
 	for nd := range ln.nodes {
 		r.nodes[nd] = li
 	}
+	if r.laneH == 2 {
+		r.drawSlim(p, y, cycles)
+		return
+	}
+	g, t := r.g, r.t
+	name := p.sig.Name
+	nameX := r.x0 - 1 - lipgloss.Width(name)
+	r.c.text(nameX, y+1, name, &t.Name)
 
 	total := cycles * r.cw
 	hi, mid, lo := y, y+1, y+2
@@ -517,9 +524,9 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 	spacer := !r.opts.Compact
 	below := func(l laneRow) int {
 		if spacer {
-			return l.top + laneRows
+			return l.top + r.laneH
 		}
-		return l.top + laneRows - 1
+		return l.top + r.laneH - 1
 	}
 
 	putLabel := func(x0, x1, y int) bool {
@@ -569,7 +576,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			r.c.put(xb, lb.top, g.ArrowDown, st)
 		}
 		if headA {
-			r.c.put(xa, la.top+laneRows-1, g.ArrowUp, st)
+			r.c.put(xa, la.top+r.laneH-1, g.ArrowUp, st)
 		}
 		if !putLabel(xa, xb, y) {
 			r.c.text(xb+1, (y+lb.top)/2, label, lst)
@@ -591,7 +598,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			r.c.vline(xb, below(lb), y-1, g.EdgeV, st)
 		}
 		if headB {
-			r.c.put(xb, lb.top+laneRows-1, g.ArrowUp, st)
+			r.c.put(xb, lb.top+r.laneH-1, g.ArrowUp, st)
 		}
 		if headA {
 			r.c.put(xa, la.top, g.ArrowDown, st)
