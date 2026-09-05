@@ -490,7 +490,7 @@ func fit(s string, w int, ellipsis rune) string {
 	return string(rs[:w-1]) + string(ellipsis)
 }
 
-var edgeRe = regexp.MustCompile(`^\s*(\S)\s*([-~|<>+]+)\s*(\S)\s*(.*?)\s*$`)
+var edgeRe = regexp.MustCompile(`^\s*(\S)\s*([-~|/#<>+]+)\s*(\S)\s*(.*?)\s*$`)
 
 // deferredText is text painted after all edge lines so lines never cover it.
 type deferredText struct {
@@ -500,7 +500,8 @@ type deferredText struct {
 }
 
 // drawEdges overlays node-to-node arrows, then edge labels, then the names
-// of visible nodes (anything but a lowercase letter, as in WaveDrom).
+// of visible nodes. Per the WaveJSON spec, [A-Z] are invisible markers and
+// any other character is shown.
 func (r *renderer) drawEdges() {
 	for _, e := range r.d.Edge {
 		m := edgeRe.FindStringSubmatch(e)
@@ -524,7 +525,7 @@ func (r *renderer) drawEdges() {
 	}
 	for _, l := range r.lanes {
 		for name, x := range l.ln.nodes {
-			if unicode.IsLower(name) {
+			if unicode.IsUpper(name) {
 				continue
 			}
 			r.c.put(r.x0+x, l.top+1, name, &r.t.EdgeLabel)
