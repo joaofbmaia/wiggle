@@ -1,0 +1,14 @@
+// Synchronous SRAM: two writes then two reads, one cycle latency.
+{ signal: [
+  { name: 'clk',  wave: 'p........' },
+  ['write',
+    { name: 'we',   wave: '01.0.....' },
+    { name: 'addr', wave: 'x33x44x..', data: ['A0', 'A1', 'A2', 'A3'] },
+    { name: 'wdata', wave: 'x55x.....', data: ['W0', 'W1'] },
+  ],
+  ['read',
+    { name: 're',    wave: '0...1.0..' },
+    { name: 'rdata', wave: 'x....66x.', data: ['R2', 'R3'] },
+  ],
+  { name: 'busy',  wave: '01...10..' },
+], head: { text: 'SRAM write / read', tick: 0 }, foot: { tock: 0 } }

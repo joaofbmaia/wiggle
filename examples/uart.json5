@@ -1,0 +1,6 @@
+// 8N1 UART frame: start bit, LSB-first data, stop bit.
+{ signal: [
+  { name: 'txd',  wave: '1.0========1.', data: ['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'] },
+  { name: 'bit',  wave: 'x.3444444445x', data: ['S', '0', '1', '2', '3', '4', '5', '6', '7', 'P'] },
+  { name: 'baud', wave: 'l.PPPPPPPPPPl' },
+], head: { text: '8N1 frame' }, foot: { text: '1 start + 8 data + 1 stop', tick: -2 } }

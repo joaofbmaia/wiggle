@@ -1,0 +1,8 @@
+// Time breaks: a long transaction with the boring middle cut out.
+{ signal: [
+  { name: 'clk',   wave: 'p...|...|..' },
+  { name: 'req',   wave: '01..|...|0.' },
+  { name: 'busy',  wave: '0.1.|...|.0' },
+  { name: 'count', wave: 'x.==|=.=|=x', data: ['0', '1', '254', '255', '256'] },
+  { name: 'done',  wave: '0...|...|10' },
+] }

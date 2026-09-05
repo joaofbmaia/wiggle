@@ -1,0 +1,10 @@
+// Every wave character in one place.
+{ signal: [
+  { name: '0 1 . |',   wave: '0.1.|0..1.' },
+  { name: 'l h L H',   wave: 'l.h.L.H.l.' },
+  { name: 'p n P N',   wave: 'p.n.P.N...' },
+  { name: 'x z u d',   wave: 'x.z.u.d.x.' },
+  { name: '= 2..9',    wave: '=23456789=', data: 'a b c d e f g h i j' },
+  { name: 'period 2',  wave: 'P.=.', period: 2, data: ['wide'] },
+  { name: 'phase .5',  wave: '0.1.0.', phase: 0.5 },
+], head: { tick: 0 }, foot: { tock: 0, every: 2 } }

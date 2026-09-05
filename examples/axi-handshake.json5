@@ -1,0 +1,8 @@
+// AXI-style valid/ready handshake with back-pressure and a wait state.
+{ signal: [
+  { name: 'aclk',   wave: 'P.......' },
+  { name: 'tvalid', wave: '01...0.1', node: '.a.....d' },
+  { name: 'tready', wave: '0.1.01.0', node: '..b.c...' },
+  { name: 'tdata',  wave: 'x3.4.x5x', data: ['D0', 'D1', 'D2'] },
+  { name: 'xfer',   wave: '0.1.01.0' },
+], edge: ['a~>b setup', 'c~>d'], head: { tick: 0 } }

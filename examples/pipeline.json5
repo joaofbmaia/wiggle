@@ -1,0 +1,14 @@
+// Classic 5-stage pipeline with a load-use stall.
+{ signal: [
+  { name: 'clk', wave: 'p.......' },
+  { name: 'pc',  wave: '=====.==', data: ['0', '4', '8', 'C', '10', '14', '18'] },
+  {},
+  ['stage',
+    { name: 'IF',  wave: '3456.789', data: ['lw', 'add', 'sub', 'or', 'or', 'and', 'xor'] },
+    { name: 'ID',  wave: 'x3456.78', data: ['lw', 'add', 'sub', 'or', 'or', 'and'] },
+    { name: 'EX',  wave: 'x.345x67', data: ['lw', 'add', 'sub', 'or', 'and'] },
+    { name: 'MEM', wave: 'x..345x6', data: ['lw', 'add', 'sub', 'or'] },
+    { name: 'WB',  wave: 'x...345x', data: ['lw', 'add', 'sub'] },
+  ],
+  { name: 'stall', wave: '0....10.' },
+], head: { text: 'load-use hazard', tick: 0 } }

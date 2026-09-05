@@ -1,0 +1,7 @@
+// I2C start, address byte, ACK, one data byte, stop.
+{ signal: [
+  { name: 'scl', wave: '1.0P.......P.......P.0.1' },
+  { name: 'sda', wave: '10=========.=========.01',
+    data: ['A6', 'A5', 'A4', 'A3', 'A2', 'A1', 'A0', 'W', 'ACK', 'D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0', 'ACK'] },
+  { name: 'phase', wave: '2.4........5........4.2.', data: ['S', 'address', 'data', 'P'] },
+], head: { text: 'I2C write', tock: 0, every: 4 }, config: { hscale: 1 } }

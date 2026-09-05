@@ -49,6 +49,17 @@ Colors follow `NO_COLOR`, `CLICOLOR_FORCE` and the terminal's capabilities.
 Viewer keys: arrows or `hjkl` scroll, `+`/`-` zoom, `a` ASCII, `f` toggle bus
 fill, `g`/`G` top/bottom, `?` help, `q` quit.
 
+## Examples
+
+`examples/` has ready-made diagrams: `spi`, `i2c`, `uart`, `axi-handshake`,
+`sram`, `ddr` (period/phase), `pipeline` (groups), `gaps` (time breaks),
+`edges` (every arrow style), `states` (every wave character) and
+`README-demo.md` for `wiggle md`.
+
+```sh
+for f in examples/*.json5; do wiggle -p "$f"; done
+```
+
 ## Markdown
 
 ````markdown

@@ -1,0 +1,7 @@
+// SPI mode 0: MOSI/MISO sampled on the rising edge of SCLK.
+{ signal: [
+  { name: 'cs_n',  wave: '10.......1' },
+  { name: 'sclk',  wave: '0.P......0' },
+  { name: 'mosi',  wave: 'x.=.=.=.=x', data: ['b7', 'b6', 'b5', 'b4'] },
+  { name: 'miso',  wave: 'z.=.=.=.=z', data: ['r7', 'r6', 'r5', 'r4'] },
+], head: { text: 'SPI mode 0', tick: 0 } }
