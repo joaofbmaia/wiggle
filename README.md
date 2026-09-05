@@ -126,7 +126,9 @@ integrating diagrams into other Glamour-based tools such as
 | `=` `2`–`9` | bus segment with a label from `data`, colored by digit |
 
 `period`, `phase`, `node`, `edge`, `head`, `foot`, `config.hscale` and nested
-groups behave as in WaveDrom. `reg` and `assign` diagrams are not supported.
+groups behave as in WaveDrom. Edges are routed as elbows along lane middle
+rows: `-|`/`-~` go horizontal first, `|-`/`~-` vertical first, and `-`, `~`,
+`-|-` turn at the midpoint, so edges sharing a node take different paths. `reg` and `assign` diagrams are not supported.
 
 ## License
 

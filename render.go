@@ -519,7 +519,7 @@ func (r *renderer) drawEdges() {
 		shape := m[2]
 		headB := strings.Contains(shape, ">") || strings.Contains(shape, "+")
 		headA := strings.Contains(shape, "<") || strings.Contains(shape, "+")
-		r.drawEdge(r.lanes[la], r.lanes[la].ln.nodes[a], r.lanes[lb], r.lanes[lb].ln.nodes[b], headA, headB, m[4])
+		r.drawEdge(r.lanes[la], r.lanes[la].ln.nodes[a], r.lanes[lb], r.lanes[lb].ln.nodes[b], routingOf(shape), headA, headB, m[4])
 	}
 	for _, d := range r.deferred {
 		r.c.text(d.x, d.y, d.s, d.st)
@@ -557,110 +557,169 @@ type headCell struct {
 	r    rune
 }
 
-// drawEdge routes an arrow from node a to node b. Horizontal runs use the
-// source lane's middle row; vertical runs drop or rise at b's column and
-// land on b's lane with an arrow head.
-func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB bool, label string) {
+// routing is how an edge travels between lanes, taken from the shape
+// characters between the node names (heads and label markers stripped):
+// "-|" and "-~" run horizontally first, "|-" and "~-" vertically first,
+// everything else (straight "-", curved "~", "-|-") turns at the midpoint.
+type routing uint8
+
+const (
+	routeMid routing = iota // horizontal, vertical at the midpoint, horizontal
+	routeHV                 // horizontal along the source lane, then vertical
+	routeVH                 // vertical at the source, then horizontal along the target lane
+)
+
+func routingOf(shape string) routing {
+	s := strings.Trim(shape, "<>+#")
+	if len(s) < 2 {
+		return routeMid
+	}
+	first, last := s[0], s[len(s)-1]
+	switch {
+	case first == '-' && last != '-':
+		return routeHV
+	case first != '-' && last == '-':
+		return routeVH
+	}
+	return routeMid
+}
+
+type point struct{ x, y int }
+
+// drawEdge routes an arrow from node a to node b as a polyline along lane
+// middle rows and node columns, then queues its heads and label.
+func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, rt routing, headA, headB bool, label string) {
 	g, t := r.g, r.t
-	st, lst := &t.Edge, &t.EdgeLabel
+	st := &t.Edge
 	xa += r.x0
 	xb += r.x0
-	y := la.top + 1 // middle row of a
-	right := xb > xa
+	ya, yb := la.top+1, lb.top+1
 
-	putLabel := func(x0, x1, y int) bool {
-		lo, hi := min(x0, x1), max(x0, x1)
-		w := hi - lo - 1
-		n := utf8.RuneCountInString(label)
-		if label == "" || n > w {
-			return false
-		}
-		r.deferred = append(r.deferred, deferredText{lo + 1 + (w-n)/2, y, label, lst})
-		return true
-	}
-	// start joins the run to the transition stroke at a, if any.
-	joinA := r.c.at(xa, y) == g.V
-	start := func() {
-		if !joinA {
-			return
-		}
-		if right {
-			r.c.put(xa, y, g.TeeRight, st)
-		} else {
-			r.c.put(xa, y, g.TeeLeft, st)
-		}
-	}
-
+	var pts []point
 	switch {
-	case la.top == lb.top:
-		r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
-		start()
-		if headB {
-			r.head(xb, y, arrowH(g, right))
-		}
-		if headA {
-			r.head(xa, y, arrowH(g, !right))
-		}
-		putLabel(xa, xb, y)
-	case la.top < lb.top:
-		// Down: run along a's middle row, drop onto b's top row.
-		if xa == xb {
-			r.c.vline(xa, y+1, lb.top-1, g.EdgeV, st)
-			if headA {
-				r.head(xa, y+1, g.ArrowUp)
-			}
-		} else {
-			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
-			start()
-			if right {
-				r.c.put(xb, y, g.TR, st)
-			} else {
-				r.c.put(xb, y, g.TL, st)
-			}
-			r.c.vline(xb, y+1, lb.top-1, g.EdgeV, st)
-			if headA {
-				r.head(xa, y, arrowH(g, !right))
-			}
-		}
-		if headB {
-			r.head(xb, lb.top, g.ArrowDown)
-		}
-		if !putLabel(xa, xb, y) {
-			r.deferred = append(r.deferred, deferredText{xb + 1, (y + lb.top) / 2, label, lst})
-		}
+	case ya == yb:
+		pts = []point{{xa, ya}, {xb, ya}}
+	case xa == xb:
+		pts = []point{{xa, ya}, {xb, landing(lb, ya < yb)}}
 	default:
-		// Up: run along a's middle row, rise onto b's bottom row.
-		bot := lb.top + laneRows - 1
-		if xa == xb {
-			r.c.vline(xa, bot+1, y-1, g.EdgeV, st)
-			if headA {
-				r.head(xa, y-1, g.ArrowDown)
-			}
+		switch xm := (xa + xb) / 2; {
+		case rt == routeVH:
+			pts = []point{{xa, ya}, {xa, yb}, {xb, yb}}
+		case rt == routeMid && xm != xa && xm != xb:
+			pts = []point{{xa, ya}, {xm, ya}, {xm, yb}, {xb, yb}}
+		default:
+			pts = []point{{xa, ya}, {xb, ya}, {xb, landing(lb, ya < yb)}}
+		}
+	}
+
+	joinA := r.c.at(xa, ya) == g.V
+	for i := 0; i+1 < len(pts); i++ {
+		p, q := pts[i], pts[i+1]
+		if p.y == q.y {
+			r.c.hline(min(p.x, q.x), max(p.x, q.x), p.y, g.EdgeH, st)
 		} else {
-			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
-			start()
-			if right {
-				r.c.put(xb, y, g.BR, st)
-			} else {
-				r.c.put(xb, y, g.BL, st)
-			}
-			r.c.vline(xb, bot+1, y-1, g.EdgeV, st)
-			if headA {
-				r.head(xa, y, arrowH(g, !right))
-			}
+			r.c.vline(p.x, min(p.y, q.y), max(p.y, q.y), g.EdgeV, st)
 		}
-		if headB {
-			r.head(xb, bot, g.ArrowUp)
+	}
+	for i := 1; i+1 < len(pts); i++ {
+		r.c.put(pts[i].x, pts[i].y, corner(g, pts[i-1], pts[i], pts[i+1]), st)
+	}
+	first := dir(pts[0], pts[1])
+	last := dir(pts[len(pts)-2], pts[len(pts)-1])
+	if joinA && first.y == 0 {
+		if first.x > 0 {
+			r.c.put(xa, ya, g.TeeRight, st)
+		} else {
+			r.c.put(xa, ya, g.TeeLeft, st)
 		}
-		if !putLabel(xa, xb, y) {
-			r.deferred = append(r.deferred, deferredText{xb + 1, (y + bot) / 2, label, lst})
+	}
+	if headB {
+		r.head(pts[len(pts)-1].x, pts[len(pts)-1].y, arrow(g, last))
+	}
+	if headA {
+		r.head(xa, ya, arrow(g, point{-first.x, -first.y}))
+	}
+
+	// Label: centred on the longest horizontal run with room, else beside
+	// the first vertical run.
+	if label == "" {
+		return
+	}
+	n := utf8.RuneCountInString(label)
+	best, bestW := -1, 0
+	for i := 0; i+1 < len(pts); i++ {
+		if w := abs(pts[i+1].x-pts[i].x) - 1; pts[i].y == pts[i+1].y && w >= n && w > bestW {
+			best, bestW = i, w
+		}
+	}
+	if best >= 0 {
+		lo := min(pts[best].x, pts[best+1].x)
+		r.deferred = append(r.deferred, deferredText{lo + 1 + (bestW-n)/2, pts[best].y, label, &t.EdgeLabel})
+		return
+	}
+	for i := 0; i+1 < len(pts); i++ {
+		if pts[i].x == pts[i+1].x {
+			r.deferred = append(r.deferred, deferredText{pts[i].x + 1, (pts[i].y + pts[i+1].y) / 2, label, &t.EdgeLabel})
+			return
 		}
 	}
 }
 
-func arrowH(g *Glyphs, right bool) rune {
-	if right {
-		return g.ArrowRight
+// landing is the row an arrow arriving vertically ends on: the target
+// lane's top row when coming from above, its bottom row from below.
+func landing(l laneRow, fromAbove bool) int {
+	if fromAbove {
+		return l.top
 	}
-	return g.ArrowLeft
+	return l.top + laneRows - 1
+}
+
+func dir(p, q point) point {
+	return point{sign(q.x - p.x), sign(q.y - p.y)}
+}
+
+func sign(n int) int {
+	switch {
+	case n < 0:
+		return -1
+	case n > 0:
+		return 1
+	}
+	return 0
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+// corner picks the glyph joining the directions toward the previous and
+// next points of a polyline.
+func corner(g *Glyphs, prev, at, next point) rune {
+	a, b := dir(at, prev), dir(at, next)
+	up := a.y < 0 || b.y < 0
+	right := a.x > 0 || b.x > 0
+	switch {
+	case up && right:
+		return g.BL
+	case up:
+		return g.BR
+	case right:
+		return g.TL
+	}
+	return g.TR
+}
+
+func arrow(g *Glyphs, d point) rune {
+	switch {
+	case d.x > 0:
+		return g.ArrowRight
+	case d.x < 0:
+		return g.ArrowLeft
+	case d.y > 0:
+		return g.ArrowDown
+	}
+	return g.ArrowUp
 }
