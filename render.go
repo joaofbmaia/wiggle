@@ -175,8 +175,8 @@ func (r *renderer) render() string {
 			rows = append(rows, rowPlan{kind: rowText, label: f.Text})
 		}
 	}
-	// Drop a trailing spacer.
-	for len(rows) > 0 && rows[len(rows)-1].kind == rowSpacer {
+	// Drop a trailing spacer unless edges may be drawn on it.
+	for len(r.d.Edge) == 0 && len(rows) > 0 && rows[len(rows)-1].kind == rowSpacer {
 		rows = rows[:len(rows)-1]
 	}
 
