@@ -2,6 +2,7 @@ package wiggle
 
 import (
 	"math"
+	"strings"
 
 	"github.com/joaofbmaia/wiggle/wavejson"
 )
@@ -114,6 +115,11 @@ func expand(sig *wavejson.Signal, cw int) *lane {
 			}
 			continue
 		}
+		// Clock and h/l bricks open with a vertical stroke whatever came
+		// before, except for the pairs WaveDrom lists as flat.
+		if strings.ContainsRune("pnPNhlHL", ch) && !flatPairs[string([]rune{prev, ch})] && s >= 0 && s < total {
+			ln.edges[s] = true
+		}
 		prev = ch
 		switch ch {
 		case 'p', 'P', 'n', 'N':
@@ -172,6 +178,13 @@ func expand(sig *wavejson.Signal, cw int) *lane {
 	return ln
 }
 
+// flatPairs are the (previous, current) wave character pairs whose
+// leading stroke WaveDrom suppresses (gen-wave-brick.js "xclude").
+var flatPairs = map[string]bool{
+	"hp": true, "Hp": true, "ln": true, "Ln": true,
+	"nh": true, "Nh": true, "pl": true, "Pl": true,
+}
+
 // clock fills one clock period and returns the state at its end.
 func clock(ln *lane, s, e int, ch rune, set func(int, int, cell), mark func(int)) cell {
 	half := s + (e-s)/2
@@ -183,9 +196,6 @@ func clock(ln *lane, s, e int, ch rune, set func(int, int, cell), mark func(int)
 	set(half, e, second)
 	if s == 0 {
 		ln.lead = second.k
-	}
-	if s >= 0 && s < len(ln.edges) {
-		ln.edges[s] = true
 	}
 	if ch == 'P' || ch == 'N' {
 		mark(s)
