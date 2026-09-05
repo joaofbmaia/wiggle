@@ -24,15 +24,13 @@ import (
 var version = "dev"
 
 type flags struct {
-	width   int
-	ascii   bool
-	sharp   bool
-	flat    bool
-	compact bool
-	slim    bool
-	plain   bool
-	wrap    int
-	style   string
+	width int
+	ascii bool
+	sharp bool
+	flat  bool
+	plain bool
+	wrap  int
+	style string
 }
 
 func (f *flags) bind(cmd *cobra.Command) {
@@ -41,13 +39,11 @@ func (f *flags) bind(cmd *cobra.Command) {
 	fs.BoolVar(&f.ascii, "ascii", false, "draw with ASCII characters only")
 	fs.BoolVar(&f.sharp, "sharp", false, "draw square corners")
 	fs.BoolVar(&f.flat, "flat", false, "outline bus segments instead of filling them")
-	fs.BoolVar(&f.compact, "compact", false, "no blank row between signals")
-	fs.BoolVar(&f.slim, "slim", false, "two-row lanes drawn with overline/underline (needs terminal support)")
 	fs.BoolVarP(&f.plain, "plain", "p", false, "print instead of opening the interactive viewer")
 }
 
 func (f *flags) options(dark, color bool) wiggle.Options {
-	o := wiggle.Options{Width: f.width, Compact: f.compact, Slim: f.slim && color && !f.ascii, Glyphs: &wiggle.Rounded}
+	o := wiggle.Options{Width: f.width, Glyphs: &wiggle.Rounded}
 	switch {
 	case f.ascii:
 		o.Glyphs = &wiggle.ASCII

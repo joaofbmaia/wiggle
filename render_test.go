@@ -25,8 +25,7 @@ func TestGolden(t *testing.T) {
 	variants := map[string]func(Options) Options{
 		"":        func(o Options) Options { return o },
 		".ascii":  func(o Options) Options { o.Glyphs = &ASCII; return o },
-		".narrow": func(o Options) Options { o.Width = 2; o.Compact = true; return o },
-		".slim":   func(o Options) Options { o.Slim = true; return o },
+		".narrow": func(o Options) Options { o.Width = 2; return o },
 	}
 	for _, f := range files {
 		src, err := os.ReadFile(f)
@@ -146,26 +145,5 @@ func TestHscaleMultipliesWidth(t *testing.T) {
 	d, _ := wavejson.Parse([]byte(`{signal:[{name:'a', wave:'0.'}], config:{hscale:3}}`))
 	if got := o.cycleWidth(d); got != 12 {
 		t.Errorf("cycle width %d, want 12", got)
-	}
-}
-
-func TestSlimLanesUseEdgeGlyphs(t *testing.T) {
-	o := plain()
-	o.Slim = true
-	o.Width = 4
-	lines := render(t, `{signal:[{name:'a', wave:'01z'}]}`, o)
-	if len(lines) != 2 {
-		t.Fatalf("slim lane should be two rows, got %d: %q", len(lines), lines)
-	}
-	top, bot := lines[0], lines[1]
-	// 0->1: corner with the high line on top, plain stroke below.
-	// 1->z: stroke joins the z line, which runs along the boundary.
-	for _, want := range []string{"🭽▔▔▔🭼▁▁▁", "▁▁▁▁▏"} {
-		if !strings.Contains(top+"\n"+bot, want) {
-			t.Errorf("missing %q in\n%s\n%s", want, top, bot)
-		}
-	}
-	if strings.ContainsAny(bot, "▔") {
-		t.Errorf("bottom row must not carry a high line: %q", bot)
 	}
 }

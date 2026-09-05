@@ -35,6 +35,14 @@ func (c *canvas) put(x, y int, r rune, st *lipgloss.Style) {
 	c.cells[y*c.w+x] = canvasCell{r: r, st: st}
 }
 
+// at returns the glyph at x, y; a space outside the canvas.
+func (c *canvas) at(x, y int) rune {
+	if x < 0 || y < 0 || x >= c.w || y >= c.h {
+		return ' '
+	}
+	return c.cells[y*c.w+x].r
+}
+
 func (c *canvas) text(x, y int, s string, st *lipgloss.Style) {
 	for _, r := range s {
 		c.put(x, y, r, st)
@@ -104,29 +112,21 @@ type renderer struct {
 	g     *Glyphs
 	t     *Theme
 	cw    int // columns per cycle
-	laneH int // rows per lane: 3, or 2 in slim mode
-	// slimBars caches bus-filled boundary stroke styles per bus color.
-	slimBars [8]*lipgloss.Style
-	x0       int // first lane column
-	lanes    []laneRow
-	nodes    map[rune]int // node -> lane index
-	c        *canvas
+	x0    int // first lane column
+	lanes []laneRow
+	nodes map[rune]int // node -> lane index
+	c     *canvas
 }
 
 func newRenderer(d *wavejson.Diagram, opts Options) *renderer {
-	h := 3
-	if opts.Slim {
-		h = 2
-	}
-	return &renderer{d: d, opts: opts, g: opts.glyphs(), t: opts.theme(), cw: opts.cycleWidth(d), laneH: h, nodes: map[rune]int{}}
+	return &renderer{d: d, opts: opts, g: opts.glyphs(), t: opts.theme(), cw: opts.cycleWidth(d), nodes: map[rune]int{}}
 }
 
 // rowKind describes what a canvas row holds while laying out.
 type rowKind uint8
 
 const (
-	rowSpacer rowKind = iota
-	rowLane
+	rowLane rowKind = iota
 	rowGroupHead
 	rowGroupFoot
 	rowText
@@ -166,9 +166,6 @@ func (r *renderer) render() string {
 		if h.Tock != nil {
 			rows = append(rows, rowPlan{kind: rowTock, tick: h.Tock, every: h.Every})
 		}
-		if len(rows) > 0 && !r.opts.Compact {
-			rows = append(rows, rowPlan{kind: rowSpacer})
-		}
 	}
 	rows = r.planItems(rows, r.d.Signal, 0)
 	if f := r.d.Foot; f != nil {
@@ -182,15 +179,10 @@ func (r *renderer) render() string {
 			rows = append(rows, rowPlan{kind: rowText, label: f.Text})
 		}
 	}
-	// Drop a trailing spacer unless edges may be drawn on it.
-	for len(r.d.Edge) == 0 && len(rows) > 0 && rows[len(rows)-1].kind == rowSpacer {
-		rows = rows[:len(rows)-1]
-	}
-
 	height := 0
 	for _, p := range rows {
 		if p.kind == rowLane {
-			height += r.laneH
+			height += laneRows
 		} else {
 			height++
 		}
@@ -203,7 +195,7 @@ func (r *renderer) render() string {
 	for _, p := range rows {
 		rowsHere := 1
 		if p.kind == rowLane {
-			rowsHere = r.laneH
+			rowsHere = laneRows
 		}
 		switch p.kind {
 		case rowGroupHead:
@@ -246,21 +238,11 @@ func (r *renderer) planItems(rows []rowPlan, items []wavejson.Item, depth int) [
 		case it.Group != nil:
 			rows = append(rows, rowPlan{kind: rowGroupHead, depth: depth, label: it.Group.Name})
 			rows = r.planItems(rows, it.Group.Items, depth+1)
-			if !r.opts.Compact && len(rows) > 0 && rows[len(rows)-1].kind == rowSpacer {
-				rows[len(rows)-1] = rowPlan{kind: rowGroupFoot, depth: depth}
-			} else {
-				rows = append(rows, rowPlan{kind: rowGroupFoot, depth: depth})
-			}
+			rows = append(rows, rowPlan{kind: rowGroupFoot, depth: depth})
 		case it.Signal != nil:
 			rows = append(rows, rowPlan{kind: rowLane, depth: depth, sig: it.Signal, lane: expand(it.Signal, r.cw)})
-			if !r.opts.Compact {
-				rows = append(rows, rowPlan{kind: rowSpacer})
-			}
 		default:
 			rows = append(rows, rowPlan{kind: rowLane, depth: depth})
-			if !r.opts.Compact {
-				rows = append(rows, rowPlan{kind: rowSpacer})
-			}
 		}
 	}
 	return rows
@@ -316,6 +298,9 @@ func (r *renderer) drawTicks(p rowPlan, y, cycles int, boundary bool) {
 	}
 }
 
+// laneRows is the height of a signal lane: high, mid and low rows.
+const laneRows = 3
+
 // drawLane renders a lane whose top row is y.
 func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 	if p.sig == nil {
@@ -326,10 +311,6 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 	r.lanes = append(r.lanes, laneRow{ln: ln, top: y})
 	for nd := range ln.nodes {
 		r.nodes[nd] = li
-	}
-	if r.laneH == 2 {
-		r.drawSlim(p, y, cycles)
-		return
 	}
 	g, t := r.g, r.t
 	name := p.sig.Name
@@ -516,18 +497,16 @@ func (r *renderer) drawEdges() {
 	}
 }
 
+// drawEdge routes an arrow from node a to node b. Horizontal runs use the
+// source lane's middle row; vertical runs drop or rise at b's column and
+// land on b's lane with an arrow head.
 func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB bool, label string) {
 	g, t := r.g, r.t
 	st, lst := &t.Edge, &t.EdgeLabel
 	xa += r.x0
 	xb += r.x0
-	spacer := !r.opts.Compact
-	below := func(l laneRow) int {
-		if spacer {
-			return l.top + r.laneH
-		}
-		return l.top + r.laneH - 1
-	}
+	y := la.top + 1 // middle row of a
+	right := xb > xa
 
 	putLabel := func(x0, x1, y int) bool {
 		lo, hi := min(x0, x1), max(x0, x1)
@@ -539,72 +518,82 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 		r.c.text(lo+1+(w-n)/2, y, label, lst)
 		return true
 	}
+	// start joins the run to the transition stroke at a, if any.
+	joinA := r.c.at(xa, y) == g.V
+	start := func() {
+		if !joinA {
+			return
+		}
+		if right {
+			r.c.put(xa, y, g.TeeRight, st)
+		} else {
+			r.c.put(xa, y, g.TeeLeft, st)
+		}
+	}
 
 	switch {
 	case la.top == lb.top:
-		y := below(la)
-		lo, hi := min(xa, xb), max(xa, xb)
-		r.c.hline(lo, hi, y, g.EdgeH, st)
-		if spacer {
-			r.c.put(xa, y, g.Anchor, st)
-			r.c.put(xb, y, g.Anchor, st)
-		}
+		r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
+		start()
 		if headB {
-			r.c.put(xb, y, arrowH(g, xb > xa), st)
+			r.c.put(xb, y, arrowH(g, right), st)
 		}
 		if headA {
-			r.c.put(xa, y, arrowH(g, xa > xb), st)
+			r.c.put(xa, y, arrowH(g, !right), st)
 		}
-		putLabel(lo, hi, y)
+		putLabel(xa, xb, y)
 	case la.top < lb.top:
-		// Down: turn on the row below a, drop onto b's top row.
-		y := below(la)
+		// Down: run along a's middle row, drop onto b's top row.
 		if xa == xb {
-			r.c.vline(xa, y, lb.top-1, g.EdgeV, st)
+			r.c.vline(xa, y+1, lb.top-1, g.EdgeV, st)
+			if headA {
+				r.c.put(xa, y+1, g.ArrowUp, st)
+			}
 		} else {
 			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
-			if xb > xa {
-				r.c.put(xa, y, g.BL, st)
+			start()
+			if right {
 				r.c.put(xb, y, g.TR, st)
 			} else {
-				r.c.put(xa, y, g.BR, st)
 				r.c.put(xb, y, g.TL, st)
 			}
 			r.c.vline(xb, y+1, lb.top-1, g.EdgeV, st)
+			if headA {
+				r.c.put(xa, y, arrowH(g, !right), st)
+			}
 		}
 		if headB {
 			r.c.put(xb, lb.top, g.ArrowDown, st)
-		}
-		if headA {
-			r.c.put(xa, la.top+r.laneH-1, g.ArrowUp, st)
 		}
 		if !putLabel(xa, xb, y) {
 			r.c.text(xb+1, (y+lb.top)/2, label, lst)
 		}
 	default:
-		// Up: turn on the row above a, rise onto b's bottom row.
-		y := la.top - 1
+		// Up: run along a's middle row, rise onto b's bottom row.
+		bot := lb.top + laneRows - 1
 		if xa == xb {
-			r.c.vline(xa, below(lb), y, g.EdgeV, st)
+			r.c.vline(xa, bot+1, y-1, g.EdgeV, st)
+			if headA {
+				r.c.put(xa, y-1, g.ArrowDown, st)
+			}
 		} else {
 			r.c.hline(min(xa, xb), max(xa, xb), y, g.EdgeH, st)
-			if xb > xa {
-				r.c.put(xa, y, g.TL, st)
+			start()
+			if right {
 				r.c.put(xb, y, g.BR, st)
 			} else {
-				r.c.put(xa, y, g.TR, st)
 				r.c.put(xb, y, g.BL, st)
 			}
-			r.c.vline(xb, below(lb), y-1, g.EdgeV, st)
+			r.c.vline(xb, bot+1, y-1, g.EdgeV, st)
+			if headA {
+				r.c.put(xa, y, arrowH(g, !right), st)
+			}
 		}
 		if headB {
-			r.c.put(xb, lb.top+r.laneH-1, g.ArrowUp, st)
-		}
-		if headA {
-			r.c.put(xa, la.top, g.ArrowDown, st)
+			r.c.put(xb, bot, g.ArrowUp, st)
 		}
 		if !putLabel(xa, xb, y) {
-			r.c.text(xb+1, (y+lb.top+1)/2, label, lst)
+			r.c.text(xb+1, (y+bot)/2, label, lst)
 		}
 	}
 }

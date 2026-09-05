@@ -22,12 +22,6 @@ type Options struct {
 	// Width is the number of columns per cycle before the document's hscale
 	// multiplier is applied. Zero means DefaultWidth.
 	Width int
-	// Compact removes the blank spacer row between lanes.
-	Compact bool
-	// Slim draws two-row lanes using the Glyphs' Slim set: level lines run
-	// along cell edges as eighth blocks and corners come from Symbols for
-	// Legacy Computing, which most modern terminals draw natively.
-	Slim bool
 	// Glyphs selects the character set. Nil means Rounded.
 	Glyphs *Glyphs
 	// Theme selects the styles. Nil means DefaultTheme(true).
@@ -84,12 +78,6 @@ type Glyphs struct {
 	Anchor                                    rune // marks an edge end without an arrow head
 
 	Ellipsis rune
-
-	// Slim (two-row) lanes. High and Low run along the top and bottom cell
-	// edges, Left and Right are vertical strokes at the cell sides, and the
-	// corners combine a stroke with an edge line.
-	SlimHigh, SlimLow, SlimLeft, SlimRight rune
-	SlimTL, SlimTR, SlimBL, SlimBR         rune
 }
 
 // Rounded is the default glyph set with rounded corners.
@@ -102,8 +90,6 @@ var Rounded = Glyphs{
 	EdgeH: '─', EdgeV: '│',
 	ArrowRight: '▶', ArrowLeft: '◀', ArrowUp: '▲', ArrowDown: '▼',
 	Anchor: '╵', Ellipsis: '…',
-	SlimHigh: '▔', SlimLow: '▁', SlimLeft: '▏', SlimRight: '▕',
-	SlimTL: '\U0001FB7D', SlimTR: '\U0001FB7E', SlimBL: '\U0001FB7C', SlimBR: '\U0001FB7F',
 }
 
 // Sharp is a glyph set with square corners.
@@ -116,8 +102,6 @@ var Sharp = Glyphs{
 	EdgeH: '─', EdgeV: '│',
 	ArrowRight: '▶', ArrowLeft: '◀', ArrowUp: '▲', ArrowDown: '▼',
 	Anchor: '╵', Ellipsis: '…',
-	SlimHigh: '▔', SlimLow: '▁', SlimLeft: '▏', SlimRight: '▕',
-	SlimTL: '\U0001FB7D', SlimTR: '\U0001FB7E', SlimBL: '\U0001FB7C', SlimBR: '\U0001FB7F',
 }
 
 // ASCII is a glyph set restricted to 7-bit ASCII.
@@ -130,8 +114,6 @@ var ASCII = Glyphs{
 	EdgeH: '-', EdgeV: '|',
 	ArrowRight: '>', ArrowLeft: '<', ArrowUp: '^', ArrowDown: 'v',
 	Anchor: '\'', Ellipsis: '~',
-	SlimHigh: '_', SlimLow: '_', SlimLeft: '|', SlimRight: '|',
-	SlimTL: '_', SlimTR: '_', SlimBL: '|', SlimBR: '|',
 }
 
 // Theme holds the styles applied to each element of a diagram.
