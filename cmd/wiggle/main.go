@@ -89,7 +89,7 @@ diagram.`,
 			if !env.interactive {
 				return print(wiggle.Render(d, opts))
 			}
-			return run(tui.New(name, opts, tui.Diagram{D: d}), env)
+			return run(f.viewer(name, opts, env, tui.Diagram{D: d}), env)
 		},
 	}
 	f.bind(root)
@@ -140,7 +140,7 @@ wavedrom or wavejson are drawn as timing diagrams.`,
 				}
 				blocks = append(blocks, tui.Diagram{D: d, Indent: markdown.CodeIndent})
 			}
-			return run(tui.New(name, r.Options().Wiggle, blocks...), env)
+			return run(f.viewer(name, r.Options().Wiggle, env, blocks...), env)
 		},
 	}
 	f.bind(md)
@@ -151,6 +151,20 @@ wavedrom or wavejson are drawn as timing diagrams.`,
 	if err := fang.Execute(context.Background(), root, fang.WithVersion(version)); err != nil {
 		os.Exit(1)
 	}
+}
+
+// viewer builds the interactive model. In color it leaves the theme to the
+// viewer so the fill toggle and background detection work; otherwise the
+// plain theme is fixed.
+func (f *flags) viewer(name string, opts wiggle.Options, env environment, blocks ...tui.Block) tui.Model {
+	if env.color {
+		opts.Theme = nil
+	}
+	m := tui.New(name, opts, blocks...)
+	if env.color {
+		m.SetFill(!f.flat)
+	}
+	return m
 }
 
 func input(args []string) ([]byte, string, error) {

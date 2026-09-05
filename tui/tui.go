@@ -165,6 +165,14 @@ func New(title string, opts wiggle.Options, blocks ...Block) Model {
 	return m
 }
 
+// SetFill chooses filled (DefaultTheme) or outlined (FlatTheme) buses. It
+// has no effect when the viewer was given an explicit Theme.
+func (m *Model) SetFill(fill bool) {
+	m.fill = fill
+	m.applyTheme()
+	m.refresh()
+}
+
 // Options returns the rendering options currently in effect.
 func (m Model) Options() wiggle.Options { return m.opts }
 
