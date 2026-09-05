@@ -384,28 +384,28 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 		// its stroke, as WaveDrom does: a spike from the line to the far
 		// level.
 		if ln.edges[x] && pl == cl && (cl == lvTop || cl == lvBottom) {
-			st := &t.Line
+			st, up, down := &t.Line, g.V, g.V
 			if ln.marks[x] {
-				st = &t.Mark
+				st, up, down = &t.Mark, g.MarkUp, g.MarkDown
 			}
 			if cl == lvTop {
-				put3(cx, g.TeeDown, g.V, g.StubUp, st)
+				put3(cx, g.TeeDown, up, g.StubUp, st)
 			} else {
-				put3(cx, g.StubDown, g.V, g.TeeUp, st)
+				put3(cx, g.StubDown, down, g.TeeUp, st)
 			}
 			continue
 		}
 		if pl != cl && pl != lvNone && pl != lvBus {
 			st := &t.Line
-			tl, tr, bl, br, v := g.TL, g.TR, g.BL, g.BR, g.V
+			tl, tr, bl, br, up, down := g.TL, g.TR, g.BL, g.BR, g.V, g.V
 			if ln.marks[x] {
-				st = &t.Mark
+				st, up, down = &t.Mark, g.MarkUp, g.MarkDown
 			}
 			switch {
 			case pl == lvBottom && cl == lvTop:
-				put3(cx, tl, v, br, st)
+				put3(cx, tl, up, br, st)
 			case pl == lvTop && cl == lvBottom:
-				put3(cx, tr, v, bl, st)
+				put3(cx, tr, down, bl, st)
 			case pl == lvTop && cl == lvMid:
 				r.c.put(cx, hi, tr, st)
 				r.c.put(cx, mid, bl, st)
