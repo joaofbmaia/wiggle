@@ -21,7 +21,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "dev"
+// version is set by goreleaser; when empty fang reports the module version
+// from build info, which is what `go install ...@vX.Y.Z` records.
+var version string
 
 type flags struct {
 	width int
@@ -148,7 +150,11 @@ wavedrom or wavejson are drawn as timing diagrams.`,
 	md.Flags().StringVar(&f.style, "style", os.Getenv("GLAMOUR_STYLE"), "Glamour style name or JSON file")
 	root.AddCommand(md)
 
-	if err := fang.Execute(context.Background(), root, fang.WithVersion(version)); err != nil {
+	var opts []fang.Option
+	if version != "" {
+		opts = append(opts, fang.WithVersion(version))
+	}
+	if err := fang.Execute(context.Background(), root, opts...); err != nil {
 		os.Exit(1)
 	}
 }
