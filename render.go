@@ -2,6 +2,7 @@ package wiggle
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -640,22 +641,31 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, rt routing, 
 		r.head(xa, ya, arrow(g, point{-first.x, -first.y}))
 	}
 
-	// Label: centred on the longest horizontal run that fits it with a
-	// space on either side, else beside the first vertical run.
+	// Label: on the longest horizontal run that fits it with a space on
+	// either side, nudged along the run to avoid earlier labels; else
+	// beside the first vertical run.
 	if label == "" {
 		return
 	}
 	n := utf8.RuneCountInString(label)
-	best, bestW := -1, 0
+	type run struct{ lo, w, y int }
+	var runs []run
 	for i := 0; i+1 < len(pts); i++ {
-		if w := abs(pts[i+1].x-pts[i].x) - 1; pts[i].y == pts[i+1].y && w >= n+2 && w > bestW {
-			best, bestW = i, w
+		if w := abs(pts[i+1].x-pts[i].x) - 1; pts[i].y == pts[i+1].y && w >= n+2 {
+			runs = append(runs, run{min(pts[i].x, pts[i+1].x), w, pts[i].y})
 		}
 	}
-	if best >= 0 {
-		lo := min(pts[best].x, pts[best+1].x)
-		r.deferred = append(r.deferred, deferredText{lo + 1 + (bestW-n)/2, pts[best].y, label, &t.EdgeLabel})
-		return
+	sort.SliceStable(runs, func(i, j int) bool { return runs[i].w > runs[j].w })
+	for _, rn := range runs {
+		mid := rn.lo + 1 + (rn.w-n)/2
+		for d := 0; mid-d >= rn.lo+1 || mid+d+n <= rn.lo+1+rn.w; d++ {
+			for _, x := range []int{mid + d, mid - d} {
+				if x >= rn.lo+1 && x+n <= rn.lo+1+rn.w && r.labelFree(x, rn.y, n) {
+					r.deferred = append(r.deferred, deferredText{x, rn.y, label, &t.EdgeLabel})
+					return
+				}
+			}
+		}
 	}
 	for i := 0; i+1 < len(pts); i++ {
 		if pts[i].x == pts[i+1].x {
@@ -663,6 +673,20 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, rt routing, 
 			return
 		}
 	}
+}
+
+// labelFree reports whether n cells at x, y are clear of queued labels.
+func (r *renderer) labelFree(x, y, n int) bool {
+	for _, d := range r.deferred {
+		if d.y != y {
+			continue
+		}
+		w := utf8.RuneCountInString(d.s)
+		if x < d.x+w+1 && d.x < x+n+1 {
+			return false
+		}
+	}
+	return true
 }
 
 // landing is the row an arrow arriving vertically ends on: the target
