@@ -64,8 +64,6 @@ type Glyphs struct {
 	// Corners. TL is ╭: joins down and right. Rising edges use TL, V, BR;
 	// falling edges use TR, V, BL.
 	TL, TR, BL, BR rune
-	// Emphasized strokes for marked clock edges (P, N, H, L).
-	MarkTL, MarkTR, MarkBL, MarkBR, MarkV rune
 	// Tees joining level lines to bus outlines: ┬ ┴ ┤ ├.
 	TeeDown, TeeUp, TeeLeft, TeeRight rune
 
@@ -87,7 +85,6 @@ type Glyphs struct {
 var Rounded = Glyphs{
 	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
 	TL: '╭', TR: '╮', BL: '╰', BR: '╯',
-	MarkTL: '┎', MarkTR: '┒', MarkBL: '┖', MarkBR: '┚', MarkV: '┃',
 	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
 	GroupTop: '╭', GroupBar: '│', GroupBottom: '╰',
 	EdgeH: '─', EdgeV: '│',
@@ -100,7 +97,6 @@ var Rounded = Glyphs{
 var Sharp = Glyphs{
 	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
 	TL: '┌', TR: '┐', BL: '└', BR: '┘',
-	MarkTL: '┎', MarkTR: '┒', MarkBL: '┖', MarkBR: '┚', MarkV: '┃',
 	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
 	GroupTop: '┌', GroupBar: '│', GroupBottom: '└',
 	EdgeH: '─', EdgeV: '│',
@@ -113,7 +109,6 @@ var Sharp = Glyphs{
 var ASCII = Glyphs{
 	Line: '-', Weak: '.', Fill: 'x', Gap: ':', V: '|',
 	TL: '.', TR: '.', BL: '\'', BR: '\'',
-	MarkTL: '+', MarkTR: '+', MarkBL: '+', MarkBR: '+', MarkV: '#',
 	TeeDown: '+', TeeUp: '+', TeeLeft: '+', TeeRight: '+',
 	GroupTop: '.', GroupBar: '|', GroupBottom: '\'',
 	EdgeH: '-', EdgeV: '|',
@@ -126,7 +121,7 @@ var ASCII = Glyphs{
 type Theme struct {
 	Name      lipgloss.Style // signal names
 	Line      lipgloss.Style // signal lines and bus outlines
-	Mark      lipgloss.Style // emphasized clock edges
+	Mark      lipgloss.Style // marked clock edges (P, N, H, L)
 	Weak      lipgloss.Style // pull-up/pull-down levels
 	HighZ     lipgloss.Style // high-impedance level
 	Undefined lipgloss.Style // undefined fill

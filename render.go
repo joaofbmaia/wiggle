@@ -384,14 +384,14 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 		// its stroke, as WaveDrom does: a spike from the line to the far
 		// level.
 		if ln.edges[x] && pl == cl && (cl == lvTop || cl == lvBottom) {
-			st, v := &t.Line, g.V
+			st := &t.Line
 			if ln.marks[x] {
-				st, v = &t.Mark, g.MarkV
+				st = &t.Mark
 			}
 			if cl == lvTop {
-				put3(cx, g.TeeDown, v, g.StubUp, st)
+				put3(cx, g.TeeDown, g.V, g.StubUp, st)
 			} else {
-				put3(cx, g.StubDown, v, g.TeeUp, st)
+				put3(cx, g.StubDown, g.V, g.TeeUp, st)
 			}
 			continue
 		}
@@ -400,7 +400,6 @@ func (r *renderer) drawLane(p rowPlan, y, cycles int) {
 			tl, tr, bl, br, v := g.TL, g.TR, g.BL, g.BR, g.V
 			if ln.marks[x] {
 				st = &t.Mark
-				tl, tr, bl, br, v = g.MarkTL, g.MarkTR, g.MarkBL, g.MarkBR, g.MarkV
 			}
 			switch {
 			case pl == lvBottom && cl == lvTop:
