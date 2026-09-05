@@ -88,7 +88,7 @@ type Glyphs struct {
 var Rounded = Glyphs{
 	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
 	TL: '╭', TR: '╮', BL: '╰', BR: '╯',
-	MarkUp: '▴', MarkDown: '▾',
+	MarkUp: '▲', MarkDown: '▼',
 	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
 	GroupTop: '╭', GroupBar: '│', GroupBottom: '╰',
 	EdgeH: '─', EdgeV: '│',
@@ -101,7 +101,7 @@ var Rounded = Glyphs{
 var Sharp = Glyphs{
 	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
 	TL: '┌', TR: '┐', BL: '└', BR: '┘',
-	MarkUp: '▴', MarkDown: '▾',
+	MarkUp: '▲', MarkDown: '▼',
 	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
 	GroupTop: '┌', GroupBar: '│', GroupBottom: '└',
 	EdgeH: '─', EdgeV: '│',
