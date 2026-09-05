@@ -640,15 +640,15 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, rt routing, 
 		r.head(xa, ya, arrow(g, point{-first.x, -first.y}))
 	}
 
-	// Label: centred on the longest horizontal run with room, else beside
-	// the first vertical run.
+	// Label: centred on the longest horizontal run that fits it with a
+	// space on either side, else beside the first vertical run.
 	if label == "" {
 		return
 	}
 	n := utf8.RuneCountInString(label)
 	best, bestW := -1, 0
 	for i := 0; i+1 < len(pts); i++ {
-		if w := abs(pts[i+1].x-pts[i].x) - 1; pts[i].y == pts[i+1].y && w >= n && w > bestW {
+		if w := abs(pts[i+1].x-pts[i].x) - 1; pts[i].y == pts[i+1].y && w >= n+2 && w > bestW {
 			best, bestW = i, w
 		}
 	}
