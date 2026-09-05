@@ -1,21 +1,14 @@
 # Wiggle
 
-WaveDrom timing diagrams, rendered in the terminal with the
-[Charm](https://charm.land) stack: Bubble Tea, Bubbles and Lip Gloss.
+Render [WaveDrom](https://wavedrom.com) timing diagrams in your terminal.
 
-![wiggle rendering a WaveDrom diagram](docs/wiggle.png)
+![Wiggle rendering a WaveDrom diagram](docs/wiggle.png)
 
-- Reads the same relaxed WaveJSON that WaveDrom accepts (unquoted keys,
-  single quotes, trailing commas, comments).
-- Signals, clocks with marked edges, buses with colored labels, undefined and
-  high-impedance states, pull-up/pull-down, time breaks, nested groups,
-  head/foot titles and tick numbering, node-to-node edges with labels
-  (node names other than `A`–`Z` are shown, per the WaveJSON spec).
-- Adaptive light/dark theme; Unicode box drawing with an ASCII fallback.
-- Interactive viewer with scrolling and zoom, or plain output when piped.
-- `wiggle md` renders Markdown with Glamour and draws ```` ```wavedrom ````
-  fences as diagrams.
-- Importable: a `Render` function and a Bubble Tea model you can embed.
+Built on [Bubble Tea](https://github.com/charmbracelet/bubbletea),
+[Lip Gloss](https://github.com/charmbracelet/lipgloss) and
+[Glamour](https://github.com/charmbracelet/glamour). Reads the same relaxed
+WaveJSON that WaveDrom does, follows its rendering rules, and works as a
+CLI, an interactive viewer, a Markdown filter, or a Go library.
 
 ## Install
 
@@ -23,60 +16,48 @@ WaveDrom timing diagrams, rendered in the terminal with the
 go install github.com/joaofbmaia/wiggle/cmd/wiggle@latest
 ```
 
+Prebuilt binaries for Linux, macOS and Windows are on the
+[releases page](https://github.com/joaofbmaia/wiggle/releases).
+
 ## Usage
 
 ```sh
-wiggle diagram.json5          # interactive viewer
-wiggle diagram.json5 | less   # plain text when piped
-wiggle -p --ascii spi.json    # print, ASCII only
-cat spi.json | wiggle
-wiggle md README.md           # Markdown with wavedrom fences
-```
-
-Flags:
-
-| Flag | Effect |
-| --- | --- |
-| `-w, --width N` | columns per cycle (default 6, multiplied by `config.hscale`) |
-| `--ascii` | ASCII glyphs only |
-| `--sharp` | square corners instead of rounded |
-| `--flat` | outline bus segments instead of filling them |
-| `-p, --plain` | print instead of opening the viewer |
-| `md --wrap N` | Markdown word-wrap width (default 80) |
-| `md --style S` | Glamour style name or JSON file (`$GLAMOUR_STYLE`) |
-
-Colors follow `NO_COLOR`, `CLICOLOR_FORCE` and the terminal's capabilities.
-
-Viewer keys: arrows or `hjkl` scroll, `+`/`-` zoom, `a` ASCII, `f` toggle bus
-fill, `g`/`G` top/bottom, `?` help, `q` quit.
-
-## Examples
-
-`examples/` has ready-made diagrams: `showcase` (the picture above), `spi`, `i2c`, `uart`, `axi-handshake`,
-`sram`, `ddr` (period/phase), `pipeline` (groups), `gaps` (time breaks),
-`edges` (every arrow style), `states` (every wave character),
-`README-demo.md` for `wiggle md`, and `tutorial/` with every step of the
-[WaveDrom tutorial](https://wavedrom.com/tutorial.html).
-
-```sh
-for f in examples/*.json5; do wiggle -p "$f"; done
-```
-
-## Markdown
-
-````markdown
-```wavedrom
+$ cat spi.json5
 { signal: [
-  { name: 'clk', wave: 'p....' },
-  { name: 'dat', wave: 'x.==x', data: ['a', 'b'] },
+  { name: "clk",  wave: "P......" },
+  { name: "bus",  wave: "x.==.=x", data: ["head", "body", "tail", "data"] },
+  { name: "wire", wave: "0.1..0." }
 ]}
-```
-````
 
-`wiggle md file.md` splits the document at `wavedrom`/`wavejson` fences,
-renders the Markdown parts with Glamour and the fences with wiggle, aligned to
-Glamour's code block margin. Diagrams that fail to parse are reported inline
-without failing the document.
+$ wiggle -p spi.json5
+     ╭──╮  ╭──╮  ╭──╮  ╭──╮  ╭──╮  ╭──╮  ╭──╮
+ clk ▲  │  ▲  │  ▲  │  ▲  │  ▲  │  ▲  │  ▲  │
+     ╯  ╰──╯  ╰──╯  ╰──╯  ╰──╯  ╰──╯  ╰──╯  ╰──
+     ╭───────────┬─────┬───────────┬─────┬────╮
+ bus │╱╱╱╱╱╱╱╱╱╱╱│head │   body    │tail │╱╱╱╱│
+     ╰───────────┴─────┴───────────┴─────┴────╯
+                 ╭─────────────────╮
+wire             │                 │
+     ────────────╯                 ╰───────────
+```
+
+Without `-p`, `wiggle spi.json5` opens a viewer: scroll, `+`/`-` zoom,
+`a` ASCII, `f` bus fill, `?` help. Piped output is plain text; colors
+follow `NO_COLOR` and `CLICOLOR_FORCE`.
+
+| Flag | |
+| --- | --- |
+| `-w N` | columns per cycle (default 6, times `config.hscale`) |
+| `--ascii` | ASCII only |
+| `--sharp` | square corners |
+| `--flat` | outline buses instead of filling them |
+| `-p` | print, don't open the viewer |
+
+### Markdown
+
+`wiggle md doc.md` renders Markdown with Glamour and draws fenced
+` ```wavedrom ` (or ` ```wavejson `) blocks as diagrams. Parse errors are
+reported inline.
 
 ## Library
 
@@ -87,50 +68,22 @@ import (
 )
 
 d, err := wavejson.Parse(src)
-out := wiggle.Render(d, wiggle.Options{Width: 8})
-lipgloss.Println(out) // downsample colors for the terminal
+out := wiggle.Render(d, wiggle.Options{})
+lipgloss.Println(out) // downsamples colors for the terminal
 ```
 
-`wiggle.Options` takes a `*Glyphs` (`Rounded`, `Sharp`, `ASCII`) and a
-`*Theme` (`DefaultTheme(dark)`, `FlatTheme(dark)`, `PlainTheme()`, or your
-own). Output is truecolor ANSI; write it through `lipgloss.Print` or a
-`colorprofile.Writer`, or hand it to Bubble Tea which downsamples for you.
+`Options` takes a `*Glyphs` (`Rounded`, `Sharp`, `ASCII`) and a `*Theme`
+(`DefaultTheme(dark)`, `FlatTheme(dark)`, `PlainTheme()`). Package `tui`
+is an embeddable Bubble Tea model; package `markdown` splits documents at
+wavedrom fences for Glamour-based tools.
 
-To embed the viewer in a Bubble Tea program:
+## Examples
 
-```go
-import "github.com/joaofbmaia/wiggle/tui"
-
-m := tui.New("title", wiggle.Options{}, tui.Diagram{D: d}, tui.Text(rendered))
-```
-
-`tui.Model` implements `tea.Model`; call `SetSize` when your layout changes
-and forward messages to `Update`. It requests the terminal background color
-on `Init` and switches theme accordingly.
-
-The `markdown` package exposes `Split`, `NewRenderer` and `Render` for
-integrating diagrams into other Glamour-based tools such as
-[glow](https://github.com/charmbracelet/glow).
-
-## Wave characters
-
-| Char | Meaning |
-| --- | --- |
-| `0` `1` `l` `h` | low / high |
-| `L` `H` | low / high with an emphasized edge |
-| `p` `n` `P` `N` | positive / negative clock, capital marks the active edge |
-| `.` | repeat previous |
-| `\|` | repeat previous with a time break |
-| `x` | undefined |
-| `z` | high impedance |
-| `u` `d` | pull-up / pull-down |
-| `=` `2`–`9` | bus segment with a label from `data`, colored by digit |
-
-`period`, `phase`, `node`, `edge`, `head`, `foot`, `config.hscale` and nested
-groups behave as in WaveDrom. Edges are routed as elbows along lane middle
-rows: `-|`/`-~` go horizontal first, `|-`/`~-` vertical first, and `-`, `~`,
-`-|-` turn at the midpoint, so edges sharing a node take different paths. `reg` and `assign` diagrams are not supported.
+`examples/` has protocols (`spi`, `i2c`, `uart`, `axi-handshake`, `sram`,
+`ddr`), a `pipeline`, every wave character (`states`), every arrow style
+(`edges`), and `tutorial/` with each step of the
+[WaveDrom tutorial](https://wavedrom.com/tutorial.html).
 
 ## License
 
-MIT
+[MIT](LICENSE)

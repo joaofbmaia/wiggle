@@ -39,7 +39,7 @@ func TestParseRelaxed(t *testing.T) {
 	if req.Period != 2 || req.Phase != 0.5 {
 		t.Errorf("period/phase not parsed: %+v", req)
 	}
-	if !d.Signal[3].Blank() {
+	if it := d.Signal[3]; it.Signal != nil || it.Group != nil {
 		t.Error("expected blank lane")
 	}
 	g := d.Signal[4].Group

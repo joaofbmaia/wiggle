@@ -76,7 +76,6 @@ type Glyphs struct {
 	// Edge annotations.
 	EdgeH, EdgeV                              rune
 	ArrowRight, ArrowLeft, ArrowUp, ArrowDown rune
-	Anchor                                    rune // marks an edge end without an arrow head
 	// Stubs ending a clock edge that meets a line already at that level:
 	// StubUp hangs from the top row, StubDown rises from the bottom row.
 	StubUp, StubDown rune
@@ -93,8 +92,7 @@ var Rounded = Glyphs{
 	GroupTop: '╭', GroupBar: '│', GroupBottom: '╰',
 	EdgeH: '─', EdgeV: '│',
 	ArrowRight: '▶', ArrowLeft: '◀', ArrowUp: '▲', ArrowDown: '▼',
-	Anchor: '╵', Ellipsis: '…',
-	StubUp: '╵', StubDown: '╷',
+	Ellipsis: '…', StubUp: '╵', StubDown: '╷',
 }
 
 // Sharp is a glyph set with square corners.
@@ -106,8 +104,7 @@ var Sharp = Glyphs{
 	GroupTop: '┌', GroupBar: '│', GroupBottom: '└',
 	EdgeH: '─', EdgeV: '│',
 	ArrowRight: '▶', ArrowLeft: '◀', ArrowUp: '▲', ArrowDown: '▼',
-	Anchor: '╵', Ellipsis: '…',
-	StubUp: '╵', StubDown: '╷',
+	Ellipsis: '…', StubUp: '╵', StubDown: '╷',
 }
 
 // ASCII is a glyph set restricted to 7-bit ASCII.
@@ -119,8 +116,7 @@ var ASCII = Glyphs{
 	GroupTop: '.', GroupBar: '|', GroupBottom: '\'',
 	EdgeH: '-', EdgeV: '|',
 	ArrowRight: '>', ArrowLeft: '<', ArrowUp: '^', ArrowDown: 'v',
-	Anchor: '\'', Ellipsis: '~',
-	StubUp: '\'', StubDown: '.',
+	Ellipsis: '~', StubUp: '\'', StubDown: '.',
 }
 
 // Theme holds the styles applied to each element of a diagram.

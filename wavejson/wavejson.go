@@ -29,9 +29,6 @@ type Item struct {
 	Group  *Group
 }
 
-// Blank reports whether the item is an empty spacer lane.
-func (it Item) Blank() bool { return it.Signal == nil && it.Group == nil }
-
 // Group is a named list of items.
 type Group struct {
 	Name  string
