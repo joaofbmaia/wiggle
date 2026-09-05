@@ -86,7 +86,7 @@ type Glyphs struct {
 
 // Rounded is the default glyph set with rounded corners.
 var Rounded = Glyphs{
-	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
+	Line: '─', Weak: '╌', Fill: '╱', Gap: '┆', V: '│',
 	TL: '╭', TR: '╮', BL: '╰', BR: '╯',
 	MarkUp: '▲', MarkDown: '▼',
 	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
@@ -99,7 +99,7 @@ var Rounded = Glyphs{
 
 // Sharp is a glyph set with square corners.
 var Sharp = Glyphs{
-	Line: '─', Weak: '╌', Fill: '░', Gap: '┆', V: '│',
+	Line: '─', Weak: '╌', Fill: '╱', Gap: '┆', V: '│',
 	TL: '┌', TR: '┐', BL: '└', BR: '┘',
 	MarkUp: '▲', MarkDown: '▼',
 	TeeDown: '┬', TeeUp: '┴', TeeLeft: '┤', TeeRight: '├',
@@ -112,7 +112,7 @@ var Sharp = Glyphs{
 
 // ASCII is a glyph set restricted to 7-bit ASCII.
 var ASCII = Glyphs{
-	Line: '-', Weak: '.', Fill: 'x', Gap: ':', V: '|',
+	Line: '-', Weak: '.', Fill: '/', Gap: ':', V: '|',
 	TL: '.', TR: '.', BL: '\'', BR: '\'',
 	MarkUp: '^', MarkDown: 'v',
 	TeeDown: '+', TeeUp: '+', TeeLeft: '+', TeeRight: '+',
