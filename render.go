@@ -3,6 +3,7 @@ package wiggle
 import (
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
@@ -107,15 +108,16 @@ type laneRow struct {
 }
 
 type renderer struct {
-	d     *wavejson.Diagram
-	opts  Options
-	g     *Glyphs
-	t     *Theme
-	cw    int // columns per cycle
-	x0    int // first lane column
-	lanes []laneRow
-	nodes map[rune]int // node -> lane index
-	c     *canvas
+	d        *wavejson.Diagram
+	opts     Options
+	g        *Glyphs
+	t        *Theme
+	cw       int // columns per cycle
+	x0       int // first lane column
+	lanes    []laneRow
+	nodes    map[rune]int // node -> lane index
+	deferred []deferredText
+	c        *canvas
 }
 
 func newRenderer(d *wavejson.Diagram, opts Options) *renderer {
@@ -490,7 +492,15 @@ func fit(s string, w int, ellipsis rune) string {
 
 var edgeRe = regexp.MustCompile(`^\s*(\S)\s*([-~|<>+]+)\s*(\S)\s*(.*?)\s*$`)
 
-// drawEdges overlays node-to-node arrows.
+// deferredText is text painted after all edge lines so lines never cover it.
+type deferredText struct {
+	x, y int
+	s    string
+	st   *lipgloss.Style
+}
+
+// drawEdges overlays node-to-node arrows, then edge labels, then the names
+// of visible nodes (anything but a lowercase letter, as in WaveDrom).
 func (r *renderer) drawEdges() {
 	for _, e := range r.d.Edge {
 		m := edgeRe.FindStringSubmatch(e)
@@ -508,6 +518,17 @@ func (r *renderer) drawEdges() {
 		headB := strings.Contains(shape, ">") || strings.Contains(shape, "+")
 		headA := strings.Contains(shape, "<") || strings.Contains(shape, "+")
 		r.drawEdge(r.lanes[la], r.lanes[la].ln.nodes[a], r.lanes[lb], r.lanes[lb].ln.nodes[b], headA, headB, m[4])
+	}
+	for _, d := range r.deferred {
+		r.c.text(d.x, d.y, d.s, d.st)
+	}
+	for _, l := range r.lanes {
+		for name, x := range l.ln.nodes {
+			if unicode.IsLower(name) {
+				continue
+			}
+			r.c.put(r.x0+x, l.top+1, name, &r.t.EdgeLabel)
+		}
 	}
 }
 
@@ -529,7 +550,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 		if label == "" || n > w {
 			return false
 		}
-		r.c.text(lo+1+(w-n)/2, y, label, lst)
+		r.deferred = append(r.deferred, deferredText{lo + 1 + (w-n)/2, y, label, lst})
 		return true
 	}
 	// start joins the run to the transition stroke at a, if any.
@@ -580,7 +601,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			r.c.put(xb, lb.top, g.ArrowDown, st)
 		}
 		if !putLabel(xa, xb, y) {
-			r.c.text(xb+1, (y+lb.top)/2, label, lst)
+			r.deferred = append(r.deferred, deferredText{xb + 1, (y + lb.top) / 2, label, lst})
 		}
 	default:
 		// Up: run along a's middle row, rise onto b's bottom row.
@@ -607,7 +628,7 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, headA, headB
 			r.c.put(xb, bot, g.ArrowUp, st)
 		}
 		if !putLabel(xa, xb, y) {
-			r.c.text(xb+1, (y+bot)/2, label, lst)
+			r.deferred = append(r.deferred, deferredText{xb + 1, (y + bot) / 2, label, lst})
 		}
 	}
 }

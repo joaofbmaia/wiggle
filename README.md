@@ -9,7 +9,8 @@ WaveDrom timing diagrams, rendered in the terminal with the
   single quotes, trailing commas, comments).
 - Signals, clocks with marked edges, buses with colored labels, undefined and
   high-impedance states, pull-up/pull-down, time breaks, nested groups,
-  head/foot titles and tick numbering, node-to-node edges with labels.
+  head/foot titles and tick numbering, node-to-node edges with labels
+  (uppercase node names are shown, like WaveDrom).
 - Adaptive light/dark theme; Unicode box drawing with an ASCII fallback.
 - Interactive viewer with scrolling and zoom, or plain output when piped.
 - `wiggle md` renders Markdown with Glamour and draws ```` ```wavedrom ````
