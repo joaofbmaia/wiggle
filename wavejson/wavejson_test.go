@@ -16,7 +16,8 @@ func TestParseRelaxed(t *testing.T) {
 	    { name: 'a', wave: '01.0', data: "A B C" },
 	    ['inner', { name: 'b', wave: '=.=', node: '.a.b' }],
 	  ],
-	  { name: 'ack', wave: '1.....|01.' }
+	  { name: 'ack', wave: '1.....|01.' },
+	  { node: '..q' },
 	], head: { text: 'title', tick: 0, every: 2 }, foot: { tock: '1 2 3' },
 	config: { hscale: 2.0 }, edge: ['a~>b t1'] /* done */,
 	}`
@@ -24,8 +25,11 @@ func TestParseRelaxed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Signal) != 6 {
-		t.Fatalf("want 6 items, got %d", len(d.Signal))
+	if len(d.Signal) != 7 {
+		t.Fatalf("want 7 items, got %d", len(d.Signal))
+	}
+	if n := d.Signal[6].Signal; n == nil || n.Node != "..q" {
+		t.Errorf("node-only lane must be a signal, got %+v", d.Signal[6])
 	}
 	dat := d.Signal[1].Signal
 	if dat.Name != "dat" || len(dat.Data) != 4 || dat.Data[3] != "data" {

@@ -54,8 +54,9 @@ fill, `g`/`G` top/bottom, `?` help, `q` quit.
 
 `examples/` has ready-made diagrams: `spi`, `i2c`, `uart`, `axi-handshake`,
 `sram`, `ddr` (period/phase), `pipeline` (groups), `gaps` (time breaks),
-`edges` (every arrow style), `states` (every wave character) and
-`README-demo.md` for `wiggle md`.
+`edges` (every arrow style), `states` (every wave character),
+`README-demo.md` for `wiggle md`, and `tutorial/` with every step of the
+[WaveDrom tutorial](https://wavedrom.com/tutorial.html).
 
 ```sh
 for f in examples/*.json5; do wiggle -p "$f"; done

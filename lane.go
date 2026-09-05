@@ -160,11 +160,12 @@ func expand(sig *wavejson.Signal, cw int) *lane {
 			prevCell = cell{}
 		}
 	}
+	// Nodes may sit on lanes without a wave, or past its end.
 	for i, ch := range []rune(sig.Node) {
-		if ch == '.' || ch == ' ' || i >= len(wave) {
+		if ch == '.' || ch == ' ' {
 			continue
 		}
-		if x := colOf(i); x >= 0 && x <= total {
+		if x := colOf(i); x >= 0 {
 			ln.nodes[ch] = x
 		}
 	}

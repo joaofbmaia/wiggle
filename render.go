@@ -523,7 +523,9 @@ func (r *renderer) drawEdges() {
 		r.drawEdge(r.lanes[la], r.lanes[la].ln.nodes[a], r.lanes[lb], r.lanes[lb].ln.nodes[b], routingOf(shape), headA, headB, m[4])
 	}
 	for _, d := range r.deferred {
-		r.c.text(d.x, d.y, d.s, d.st)
+		if d.st != nil {
+			r.c.text(d.x, d.y, d.s, d.st)
+		}
 	}
 	for _, h := range r.heads {
 		r.c.put(h.x, h.y, h.r, &r.t.Edge)
@@ -614,6 +616,8 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, rt routing, 
 	}
 
 	joinA := r.c.at(xa, ya) == g.V
+	r.reserve(xa, ya)
+	r.reserve(xb, yb)
 	for i := 0; i+1 < len(pts); i++ {
 		p, q := pts[i], pts[i+1]
 		if p.y == q.y {
@@ -673,6 +677,12 @@ func (r *renderer) drawEdge(la laneRow, xa int, lb laneRow, xb int, rt routing, 
 			return
 		}
 	}
+}
+
+// reserve keeps the cells around a node clear of labels, since its name
+// (and a head) will be painted there.
+func (r *renderer) reserve(x, y int) {
+	r.deferred = append(r.deferred, deferredText{x - 1, y, "   ", nil})
 }
 
 // labelFree reports whether n cells at x, y are clear of queued labels.

@@ -193,7 +193,7 @@ func parseItem(r json.RawMessage) (Item, error) {
 		if err := dec.Decode(&raw); err != nil {
 			return Item{}, err
 		}
-		if raw.Name == "" && raw.Wave == "" {
+		if raw.Name == "" && raw.Wave == "" && raw.Node == "" {
 			return Item{}, nil
 		}
 		s := &Signal{Name: raw.Name, Wave: raw.Wave, Node: raw.Node, Period: 1}
