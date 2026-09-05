@@ -133,7 +133,8 @@ type Theme struct {
 	Undefined lipgloss.Style // undefined fill
 	Gap       lipgloss.Style // time break markers
 	// Bus styles indexed by WaveDrom color: '=' and '2' use Bus[0], '3'
-	// uses Bus[1], and so on up to '9'.
+	// uses Bus[1], and so on up to '9'. In the default themes Bus[0] is the
+	// plain line style, so '=' segments are outlined but not coloured.
 	Bus [8]lipgloss.Style
 	// BusFill paints the inside of bus segments with the Bus style instead of
 	// drawing an outline. Bus styles should then set a background.
@@ -168,13 +169,13 @@ func DefaultTheme(dark bool) Theme {
 	}
 	for i, f := range fills {
 		fg := color.Color(charmtone.Pepper)
-		if i == 0 {
-			fg = ld(charmtone.Pepper, charmtone.Salt)
-		} else if i == 7 {
+		if i == 7 {
 			fg = charmtone.Butter
 		}
 		t.Bus[i] = lipgloss.NewStyle().Foreground(fg).Background(ld(f[0], f[1]))
 	}
+	// '=' and '2' are WaveDrom's uncoloured default: outline only.
+	t.Bus[0] = t.Line
 	return t
 }
 
@@ -196,6 +197,7 @@ func FlatTheme(dark bool) Theme {
 	for i, c := range inks {
 		t.Bus[i] = lipgloss.NewStyle().Foreground(ld(c[0], c[1]))
 	}
+	t.Bus[0] = t.Line
 	return t
 }
 
