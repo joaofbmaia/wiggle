@@ -2,7 +2,7 @@
 
 Render [WaveDrom](https://wavedrom.com) timing diagrams in your terminal.
 
-![Wiggle rendering a WaveDrom diagram](docs/wiggle.png)
+![Wiggle rendering a WaveDrom diagram](docs/wiggle.svg)
 
 Built on [Bubble Tea](https://github.com/charmbracelet/bubbletea),
 [Lip Gloss](https://github.com/charmbracelet/lipgloss) and
@@ -79,10 +79,10 @@ wavedrom fences for Glamour-based tools.
 
 ## Examples
 
-`examples/` has protocols (`spi`, `i2c`, `uart`, `axi-handshake`, `sram`,
-`ddr`), a `pipeline`, every wave character (`states`), every arrow style
-(`edges`), and `tutorial/` with each step of the
-[WaveDrom tutorial](https://wavedrom.com/tutorial.html).
+[`examples/`](examples/) is a rendered gallery: protocols (`spi`, `i2c`,
+`uart`, `axi-handshake`, `sram`, `ddr`), a `pipeline`, every wave character
+(`states`), every arrow style (`edges`), and each step of the
+[WaveDrom tutorial](examples/tutorial/).
 
 ## License
 
