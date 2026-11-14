@@ -10,7 +10,7 @@ import (
 	"image/color"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/exp/charmtone"
+	"charm.land/tone"
 	"github.com/joaofbmaia/wiggle/wavejson"
 )
 
@@ -153,20 +153,20 @@ func DefaultTheme(dark bool) Theme {
 	ld := lipgloss.LightDark(dark)
 	t := baseTheme(ld)
 	t.BusFill = true
-	fills := [8][2]charmtone.Key{
-		{charmtone.Ash, charmtone.Iron},       // neutral
-		{charmtone.Zest, charmtone.Zest},      // yellow
-		{charmtone.Yam, charmtone.Tang},       // orange
-		{charmtone.Sardine, charmtone.Malibu}, // blue
-		{charmtone.Lichen, charmtone.Turtle},  // cyan
-		{charmtone.Bok, charmtone.Julep},      // green
-		{charmtone.Blush, charmtone.Dolly},    // pink
-		{charmtone.Hazy, charmtone.Charple},   // purple
+	fills := [8][2]tone.Key{
+		{tone.Sash, tone.Iron},      // neutral
+		{tone.Zest, tone.Zest},      // yellow
+		{tone.Yam, tone.Tang},       // orange
+		{tone.Sardine, tone.Malibu}, // blue
+		{tone.Lichen, tone.Turtle},  // cyan
+		{tone.Bok, tone.Julep},      // green
+		{tone.Blush, tone.Dolly},    // pink
+		{tone.Hazy, tone.Charple},   // purple
 	}
 	for i, f := range fills {
-		fg := color.Color(charmtone.Pepper)
+		fg := color.Color(tone.Pepper)
 		if i == 7 {
-			fg = charmtone.Butter
+			fg = tone.Butter
 		}
 		t.Bus[i] = lipgloss.NewStyle().Foreground(fg).Background(ld(f[0], f[1]))
 	}
@@ -180,15 +180,15 @@ func DefaultTheme(dark bool) Theme {
 func FlatTheme(dark bool) Theme {
 	ld := lipgloss.LightDark(dark)
 	t := baseTheme(ld)
-	inks := [8][2]charmtone.Key{
-		{charmtone.Charcoal, charmtone.Ash},  // neutral
-		{charmtone.Cumin, charmtone.Zest},    // yellow
-		{charmtone.Paprika, charmtone.Tang},  // orange
-		{charmtone.Damson, charmtone.Malibu}, // blue
-		{charmtone.Zinc, charmtone.Turtle},   // cyan
-		{charmtone.Guac, charmtone.Julep},    // green
-		{charmtone.Chili, charmtone.Dolly},   // pink
-		{charmtone.Grape, charmtone.Hazy},    // purple
+	inks := [8][2]tone.Key{
+		{tone.Char, tone.Sash},     // neutral
+		{tone.Cumin, tone.Zest},    // yellow
+		{tone.Paprika, tone.Tang},  // orange
+		{tone.Damson, tone.Malibu}, // blue
+		{tone.Zinc, tone.Turtle},   // cyan
+		{tone.Guac, tone.Julep},    // green
+		{tone.Chili, tone.Dolly},   // pink
+		{tone.Grape, tone.Hazy},    // purple
 	}
 	for i, c := range inks {
 		t.Bus[i] = lipgloss.NewStyle().Foreground(ld(c[0], c[1]))
@@ -201,10 +201,10 @@ func FlatTheme(dark bool) Theme {
 func PlainTheme() Theme { return Theme{} }
 
 func baseTheme(ld lipgloss.LightDarkFunc) Theme {
-	purple := ld(charmtone.Charple, charmtone.Charple)
-	pink := ld(charmtone.Macaron, charmtone.Dolly)
-	ink := ld(charmtone.Charcoal, charmtone.Ash)
-	muted := ld(charmtone.Squid, charmtone.Oyster)
+	purple := ld(tone.Charple, tone.Charple)
+	pink := ld(tone.Macaron, tone.Dolly)
+	ink := ld(tone.Char, tone.Sash)
+	muted := ld(tone.Squid, tone.Oyster)
 	return Theme{
 		Name:      lipgloss.NewStyle().Foreground(purple).Bold(true),
 		Line:      lipgloss.NewStyle().Foreground(ink),
